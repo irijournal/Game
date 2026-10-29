@@ -1029,6 +1029,12 @@ export class Simulation {
     this.meter = 100;
   }
 
+  /** Remove obstacles for the next `metres` (input tests). */
+  debugClearRoad(metres: number): void {
+    this.clearAhead(this.d - 1, this.d + metres, false);
+    this.genCursor = Math.max(this.genCursor, this.d + metres);
+  }
+
   /** Simulate a recoverable collision without needing an obstacle. */
   debugStumble(): void {
     if (this.state !== 'RUNNING' && this.state !== 'EVENT_PENDING') return;

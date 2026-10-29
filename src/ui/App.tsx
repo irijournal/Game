@@ -53,6 +53,7 @@ export function App() {
         autopilot: (on: boolean) => engine.setAutopilot(on),
         fillMeter: () => engine.sim?.debugFillMeter(),
         stumble: () => engine.sim?.debugStumble(),
+        clearRoad: (m: number) => engine.sim?.debugClearRoad(m),
       };
       off = engine.on((ev) => {
         if (ev.type === 'introDone') {

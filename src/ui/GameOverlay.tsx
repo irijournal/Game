@@ -163,7 +163,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
           {chase && (
             <div className="chase-bar" role="timer" aria-label={`${chaseLabel} ${chase.remaining.toFixed(1)} seconds left`}>
               <div className="chase-title">
-                {chase.kind === 'cycle' ? '🚲' : '🚜'} {chaseLabel} <b>{chase.remaining.toFixed(1)}s</b>
+                {chase.kind === 'cycle' ? '🚲' : '🚜'} {chaseLabel} {chase.stage > 0 && <span className="stage">Stage {chase.stage}/3</span>} <b>{chase.remaining.toFixed(1)}s</b>
               </div>
               <div className="bar">
                 <div style={{ width: `${100 - (chase.remaining / chase.total) * 100}%` }} />

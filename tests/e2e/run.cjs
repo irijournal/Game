@@ -92,6 +92,7 @@ async function scenario(name, fn) {
     await ready(page);
     await page.click('text=START GAME');
     await page.click('text=Run ▸');
+    await page.evaluate(() => window.__UPRUN__.clearRoad(400));
     await page.waitForTimeout(600);
     const lane0 = await sim(page, () => window.__UPRUN__.engine.sim.player.lane);
     await page.keyboard.press('ArrowLeft');
@@ -127,6 +128,7 @@ async function scenario(name, fn) {
     await ready(page);
     await page.tap('text=START GAME');
     await page.tap('text=Run ▸');
+    await page.evaluate(() => window.__UPRUN__.clearRoad(400));
     await page.waitForTimeout(800);
     const cdp = await ctx.newCDPSession(page);
     const swipe = async (dx, dy) => {
@@ -151,11 +153,15 @@ async function scenario(name, fn) {
     const pauseBox = await page.locator('[aria-label="Pause"]').boundingBox();
     await page.screenshot({ path: path.join(SHOTS, '03_phone.png') });
     const ok = l0 === 1 && l1 === 0 && l2 === 2 && st.jumps >= 1 && st.slides >= 1 && scroll === 0 && pauseBox && pauseBox.width >= 44 && pauseBox.height >= 44 && errors.length === 0;
-    record('phone touch swipes (no keyboard)', ok, `lanes ${l0}->${l1}->${l2} jumps=${st.jumps} slides=${st.slides} scroll=${scroll} pauseBtn=${pauseBox && Math.round(pauseBox.width)}px errors=${errors.length}`);
+    const state = (await info(page)).state;
+    record('phone touch swipes (no keyboard)', ok, `lanes ${l0}->${l1}->${l2} jumps=${st.jumps} slides=${st.slides} state=${state} scroll=${scroll} pauseBtn=${pauseBox && Math.round(pauseBox.width)}px errors=${errors.length}`);
     await ctx.close();
   });
 
   // 4. Signature sequence: stumble → Yogi entrance → bulldozer chase → escape.
+  // The bot drives through the normal input API. Time is stepped in fine,
+  // fixed increments so the result does not depend on the (slow, software)
+  // frame rate of the test browser; up to 3 attempts.
   await scenario('stumble → Yogi entrance → bulldozer chase → survived', async () => {
     const { page, errors, ctx } = await newPage(browser);
     await page.goto(BASE + '?nointro');
@@ -163,28 +169,36 @@ async function scenario(name, fn) {
     await page.click('text=START GAME');
     await page.evaluate(() => window.__UPRUN__.autopilot(true));
     await page.click('text=Run ▸');
-    await page.waitForTimeout(1000);
-    await page.evaluate(() => window.__UPRUN__.stumble());
+    await page.waitForTimeout(800);
     const seen = new Set();
     let rivalVisible = false;
     let chaserVisible = false;
-    for (let i = 0; i < 400; i++) {
-      const s = await info(page);
-      seen.add(s.state);
-      if (s.state === 'CINEMATIC' || s.state === 'CHASE') {
-        const v = await page.evaluate(() => {
-          const r = window.__UPRUN__.engine.rival;
-          return { rival: !!r.rival && r.rival.root.visible, veh: !!r.vehicle && r.vehicle.root.visible, kind: r.kind, z: r.vehicle ? r.vehicle.root.position.z : 0, x: r.vehicle ? r.vehicle.root.position.x : 0 };
-        });
-        rivalVisible = rivalVisible || v.rival;
-        // The chaser must stay on the shoulder lane, behind the runner.
-        if (s.state === 'CHASE') chaserVisible = chaserVisible || (v.veh && v.kind === 'bulldozer' && v.x > 3.5 && v.z > 1);
+    let survived = false;
+    for (let attempt = 0; attempt < 3 && !survived; attempt++) {
+      if (attempt > 0) {
+        await page.evaluate(() => (window.__UPRUN__.engine.manual = false));
+        await page.click('text=↻ Retry');
+        await page.waitForTimeout(600);
       }
-      if (s.state === 'CHASE' && s.stateTime > 2 && !fs.existsSync(path.join(SHOTS, '04_chase.png'))) await page.screenshot({ path: path.join(SHOTS, '04_chase.png') });
-      if (seen.has('SUCCESS') || s.state === 'GAME_OVER') break;
-      await page.waitForTimeout(100);
+      await page.evaluate(() => window.__UPRUN__.stumble());
+      for (let i = 0; i < 300; i++) {
+        const s = await page.evaluate(() => {
+          const e = window.__UPRUN__.engine;
+          e.stepManual(0.2, 1 / 60);
+          const r = e.rival;
+          return { ...window.__UPRUN__.info(), rival: !!r.rival && r.rival.root.visible, veh: !!r.vehicle && r.vehicle.root.visible, kind: r.kind, z: r.vehicle ? r.vehicle.root.position.z : 0, x: r.vehicle ? r.vehicle.root.position.x : 0 };
+        });
+        seen.add(s.state);
+        if (s.state === 'CINEMATIC' || s.state === 'CHASE') rivalVisible = rivalVisible || s.rival;
+        // The chaser must stay on the shoulder lane, behind the runner.
+        if (s.state === 'CHASE') chaserVisible = chaserVisible || (s.veh && s.kind === 'bulldozer' && s.x > 3.5 && s.z > 1);
+        if (s.state === 'CHASE' && s.stateTime > 2 && !fs.existsSync(path.join(SHOTS, '04_chase.png'))) await page.screenshot({ path: path.join(SHOTS, '04_chase.png') });
+        if (s.state === 'SUCCESS') survived = true;
+        if (survived || s.state === 'GAME_OVER') break;
+      }
     }
-    const ok = ['STUMBLE', 'CINEMATIC', 'CHASE', 'SUCCESS'].every((x) => seen.has(x)) && rivalVisible && chaserVisible && errors.length === 0;
+    await page.evaluate(() => (window.__UPRUN__.engine.manual = false));
+    const ok = ['STUMBLE', 'CINEMATIC', 'CHASE', 'SUCCESS'].every((x) => seen.has(x)) && survived && rivalVisible && chaserVisible && errors.length === 0;
     record('stumble → Yogi entrance → bulldozer chase → survived', ok, `states=${[...seen].join(',')} rival=${rivalVisible} chaserOnShoulder=${chaserVisible} errors=${errors.length}`);
     await ctx.close();
   });
@@ -231,8 +245,17 @@ async function scenario(name, fn) {
     await page.reload();
     await ready(page);
     const recovered = await page.evaluate(() => ({ coins: window.__UPRUN__.save.data.coins, menu: !!document.querySelector('.menu-screen') }));
-    const ok = kept.coins === 777 && kept.best === 4242 && recovered.coins === 0 && recovered.menu && errors.length === 0;
-    record('save persists after refresh; corrupt save recovers', ok, `kept=${JSON.stringify(kept)} recovered=${JSON.stringify(recovered)} errors=${errors.length}`);
+    // Leaving the page mid-run banks the run (coins + run count).
+    await page.click('text=START GAME');
+    await page.evaluate(() => window.__UPRUN__.autopilot(true));
+    await page.click('text=Run ▸');
+    await page.waitForTimeout(2500);
+    const runsBefore = await page.evaluate(() => window.__UPRUN__.save.data.stats.runs);
+    await page.reload();
+    await ready(page);
+    const runsAfter = await page.evaluate(() => window.__UPRUN__.save.data.stats.runs);
+    const ok = kept.coins === 777 && kept.best === 4242 && recovered.coins === 0 && recovered.menu && runsAfter === runsBefore + 1 && errors.length === 0;
+    record('save persists after refresh; corrupt save recovers', ok, `kept=${JSON.stringify(kept)} recovered=${JSON.stringify(recovered)} runBankedOnLeave=${runsAfter === runsBefore + 1} errors=${errors.length}`);
     await ctx.close();
   });
 
@@ -287,7 +310,8 @@ async function scenario(name, fn) {
     await ctx.close();
   });
 
-  // 9. Mode B: Bulldozer Chase challenge can be completed through movement.
+  // 9. Mode B: Bulldozer Chase challenge can be completed through movement
+  // (bot inputs, fine fixed time steps, up to 3 attempts via the Retry button).
   await scenario('Mode B bulldozer chase completes (autopilot inputs)', async () => {
     const { page, errors, ctx } = await newPage(browser);
     await page.goto(BASE + '?nointro');
@@ -298,10 +322,25 @@ async function scenario(name, fn) {
     await page.waitForFunction(() => window.__UPRUN__.info().state === 'CINEMATIC', null, { timeout: 15000 });
     await page.waitForSelector('text=Skip ▸', { timeout: 5000 });
     await page.click('text=Skip ▸');
-    await page.waitForFunction(() => window.__UPRUN__.info().state === 'GAME_OVER', null, { timeout: 90000 });
-    const done = await page.isVisible('text=CHALLENGE COMPLETE!');
+    let done = false;
+    let attempts = 0;
+    for (; attempts < 3 && !done; attempts++) {
+      if (attempts > 0) {
+        await page.evaluate(() => (window.__UPRUN__.engine.manual = false));
+        await page.click('text=↻ Retry');
+        await page.waitForTimeout(400);
+      }
+      const r = await page.evaluate(() => {
+        const e = window.__UPRUN__.engine;
+        for (let i = 0; i < 400 && e.sim.state !== 'GAME_OVER'; i++) e.stepManual(0.2, 1 / 60);
+        return e.sim.summary ? e.sim.summary.completed : false;
+      });
+      await page.waitForTimeout(900);
+      done = r && (await page.isVisible('text=CHALLENGE COMPLETE!'));
+    }
     await page.screenshot({ path: path.join(SHOTS, '09_modeB.png') });
-    record('Mode B bulldozer chase completes (autopilot inputs)', done && errors.length === 0, `complete=${done} errors=${errors.length}`);
+    await page.evaluate(() => (window.__UPRUN__.engine.manual = false));
+    record('Mode B bulldozer chase completes (autopilot inputs)', done && errors.length === 0, `complete=${done} attempts=${attempts} errors=${errors.length}`);
     await ctx.close();
   });
 

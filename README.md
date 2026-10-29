@@ -22,6 +22,12 @@ npm run build        # → dist/
 npm run preview      # http://localhost:4173
 ```
 
+For a single self-contained HTML file that opens straight from disk with no server (scripts, styles and fonts inlined, about 1.2 MB):
+
+```bash
+npm run build:single # → dist-single/index.html
+```
+
 You can host `dist/` on any static web server (GitHub Pages, Netlify, S3, `npx serve dist`). There is no backend, no API key, no analytics and no tracking. Progress is saved only in the browser's `localStorage`.
 
 Requirements: Node 18+ and a browser with WebGL (current Chrome, Edge, Firefox or Safari).
@@ -148,6 +154,7 @@ Browser scenarios cover:
 - Auto-pause on a hidden tab.
 - Mode B completion and Mode C as Yogi.
 - The no-WebGL error screen.
+- An audio smoke test: every cue and music track plays without errors.
 - A 15-game-minute soak that checks GPU resources and heap plateau.
 
 See `docs/STATUS.md` for what is verified, and how. Real-device testing (iOS Safari, Android Chrome, Firefox, desktop Safari) has **not** been done yet: the automated runs use headless Chromium with software WebGL.

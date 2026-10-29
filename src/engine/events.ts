@@ -26,7 +26,7 @@ export interface HudSnapshot {
   guardReady: boolean;
   guardT: number;
   state: SimState | 'NONE';
-  chase: { remaining: number; total: number; escapes: number; kind: 'bulldozer' | 'cycle' } | null;
+  chase: { remaining: number; total: number; escapes: number; kind: 'bulldozer' | 'cycle'; stage: number } | null;
   power: { kind: 'magnet' | 'vikas' | 'speedRun'; t: number; total: number } | null;
   mode: ModeId;
   character: CharacterId;

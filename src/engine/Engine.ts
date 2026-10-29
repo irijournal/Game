@@ -16,7 +16,8 @@ import { buildCharacter, disposeRig } from './view/characterModels';
 import type { CharacterRig } from './view/characterRig';
 import { INTRO_LENGTH, introShot, RivalDirector } from './view/cinematics';
 import { Particles } from './view/effects';
-import { basic, mesh, plane } from './view/materials';
+import { basic, mergeStatic, mesh, plane } from './view/materials';
+import { buildAutoRickshaw } from './view/vehicles';
 import { debugCollider, ObstaclePool, type ObstacleView } from './view/obstacleViews';
 import { PickupViews } from './view/pickupViews';
 import { blobShadow } from './view/textures';
@@ -91,6 +92,7 @@ export class Engine {
   private resizeObs: ResizeObserver | null = null;
   private disposers: (() => void)[] = [];
   private gameOverSent = false;
+  private traffic = new THREE.Group();
   private lastTrack: Track = 'none';
   debugAutopilot = false;
   /** Test hook: when true the RAF loop idles and stepManual() drives time. */
@@ -122,6 +124,17 @@ export class Engine {
     this.playerShadow.rotation.x = -Math.PI / 2;
     this.scene.add(this.playerShadow);
     this.pool.warm();
+    // Decorative traffic for the opening's aerial shot (never in gameplay).
+    const proto = mergeStatic(buildAutoRickshaw());
+    for (let i = 0; i < 6; i++) {
+      const a = proto.clone();
+      a.userData.lane = i % 3;
+      a.userData.offset = i * 23;
+      a.userData.speed = 6 + (i % 3) * 2.5;
+      this.traffic.add(a);
+    }
+    this.traffic.visible = false;
+    this.scene.add(this.traffic);
 
     this.input = new InputController(this.container, (a) => this.onInput(a));
     this.applySettings(this.settings);
@@ -137,6 +150,11 @@ export class Engine {
     };
     const onBlur = () => this.pauseGame('blur');
     const onOrient = () => this.pauseGame('orientation');
+    // Closing or navigating away mid-run banks the run's coins and stats.
+    const onPageHide = () => {
+      if (this.mode === 'game' && this.sim && this.sim.state !== 'GAME_OVER' && !this.gameOverSent) this.finishRun(this.sim.quit(), false);
+    };
+    window.addEventListener('pagehide', onPageHide);
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('blur', onBlur);
     window.addEventListener('orientationchange', onOrient);
@@ -150,6 +168,7 @@ export class Engine {
       () => document.removeEventListener('visibilitychange', onVis),
       () => window.removeEventListener('blur', onBlur),
       () => window.removeEventListener('orientationchange', onOrient),
+      () => window.removeEventListener('pagehide', onPageHide),
       () => canvas.removeEventListener('webglcontextlost', onLost),
     );
     this.showShowcase(this.save.data.selectedCharacter);
@@ -301,6 +320,7 @@ export class Engine {
 
   skipIntro(): void {
     if (this.mode !== 'intro') return;
+    this.traffic.visible = false;
     this.input.enabled = false;
     this.showAttract();
     this.emit({ type: 'introDone' });
@@ -454,6 +474,11 @@ export class Engine {
     this.cam.targetPos.copy(s.pos);
     this.cam.targetLook.copy(s.look);
     this.world.update(dt, this.menuD, this.cam.camera, () => 'lucknow', () => (this.menuD < 60 ? 'posterAlley' : null), false);
+    this.traffic.visible = this.introT < 6.8;
+    for (const a of this.traffic.children) {
+      const u = a.userData as { lane: number; offset: number; speed: number };
+      a.position.set(LANE_X[u.lane] * 1.0, 0, -12 - ((this.introT * u.speed + u.offset) % 140));
+    }
     // The aerial establishing shot needs to see the whole city through the haze.
     this.world.fog.far = this.introT < 4.2 ? 420 : Math.min(this.world.fog.far + dt * 200, 200);
     this.updateShadow(p.root.position.x, 0, 0);
@@ -543,7 +568,13 @@ export class Engine {
       state: sim.state,
       chase:
         sim.state === 'CHASE'
-          ? { remaining: Math.max(0, Math.round(sim.chase.remaining * 10) / 10), total: sim.chase.total, escapes: sim.chase.escapes, kind: sim.chaseKind }
+          ? {
+              remaining: Math.max(0, Math.round(sim.chase.remaining * 10) / 10),
+              total: sim.chase.total,
+              escapes: sim.chase.escapes,
+              kind: sim.chaseKind,
+              stage: sim.cfg.mode === 'B' ? Math.min(3, 1 + Math.floor((sim.chase.total - sim.chase.remaining) / (sim.chase.total / 3))) : 0,
+            }
           : null,
       power: power ? { ...power, t: Math.round(power.t * 10) / 10 } : null,
       mode: sim.cfg.mode,

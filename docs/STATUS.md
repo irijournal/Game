@@ -25,7 +25,7 @@ Starting point: the target repository was empty, so there was no earlier UP RUN 
 | 8 | Chase survivable through movement | Tested (auto) | autopilot (inputs only) survives ≥ 9/10 chases; Mode B completed in e2e |
 | 9 | Restart creates a fresh run | Tested (auto) | e2e Retry: distance resets, chase count 0, runs at normal speed (single loop) |
 | 10 | Scores and coins update correctly | Tested (auto) | `scoring.test.ts`; coins counted once per id; save `applyRun` tests |
-| 11 | Progress persists after refresh | Tested (auto) | e2e reload; `save.test.ts` |
+| 11 | Progress persists after refresh | Tested (auto) | e2e reload; a run in progress is banked on `pagehide`; `save.test.ts` |
 | 12 | Works on a phone without a keyboard | Tested (auto) on an emulated phone; **Blocked** on real devices | e2e touch swipes via CDP touch events at 390×844 |
 | 13 | Works on a laptop with keyboard | Tested (auto) | e2e keyboard scenario |
 | 14 | Interface readable on small screens | Verified (visual) | portrait screenshots at 390×844 (menus, HUD, pause, results); buttons ≥ 44 px |
@@ -51,7 +51,7 @@ Starting point: the target repository was empty, so there was no earlier UP RUN 
 | Gundaraj Meter | fills with chaos obstacles, triggers the event; labelled satire | Tested (auto) | |
 | Chase | separate shoulder lane, dust, camera pull-back, timer bar, dodges shorten it, tokens extend it (2× coins), success bonus + route cleared, clean failure | Tested (auto) | the bulldozer never touches a character |
 | Cycle variant | Akhilesh on a giant cycle when Yogi is the runner | Tested (auto) / Verified (visual) | same mechanics |
-| Modes | A Political Run, B Bulldozer Chase (30 s, 3 stages), C Showdown (same daily course, face-off) | Tested (auto) | |
+| Modes | A Political Run, B Bulldozer Chase (30 s, 3 stages shown in the HUD), C Showdown (same daily course on a fixed route, face-off) | Tested (auto) | |
 | Scoring | distance, coins, dodges, chase, missions, discoveries, tokens | Tested (auto) | |
 | Missions | 3 daily from a pool; reset at local midnight; run/day scopes | Tested (auto) | |
 | UI | menu, modes, characters, missions, unlocks, high scores (local only), settings, HUD, pause, results with breakdown | Verified (visual) | |

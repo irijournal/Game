@@ -695,6 +695,14 @@ kbd {
 .chase-bar .bar > div {
   background: linear-gradient(90deg, #f5b800, var(--green));
 }
+.chase-bar .stage {
+  padding: 0 8px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12px;
+  vertical-align: middle;
+}
 .chase-bar small {
   font-weight: 700;
   color: var(--muted);
