@@ -23,7 +23,7 @@ export type Sfx =
   | 'wrong'
   | 'fanfare';
 
-export type Track = 'none' | 'menu' | ThemeId | 'chase' | 'debate';
+export type Track = 'none' | 'menu' | ThemeId | 'chase' | 'mayhem';
 
 interface TrackDef {
   bpm: number;
@@ -53,7 +53,7 @@ const TRACKS: Record<Exclude<Track, 'none'>, TrackDef> = {
   startup: { bpm: 126, root: 60, scale: SCALES.pent, drums: 'D.n.c.n.D.n.c.nn', bass: [0, 2, 3, 1], density: 0.65, drone: false },
   viksit: { bpm: 134, root: 59, scale: SCALES.yaman, drums: 'DnnDc.nnDnnDc.nc', bass: [0, 3, 4, 3], density: 0.7, drone: true },
   chase: { bpm: 152, root: 52, scale: SCALES.bhairav, drums: 'D.nDD.nnD.nDDcnn', bass: [0, 0, 1, 0], density: 0.75, drone: false },
-  debate: { bpm: 84, root: 57, scale: SCALES.kafi, drums: 'D...n...D...n.c.', bass: [0, 4, 0, 3], density: 0.3, drone: true },
+  mayhem: { bpm: 140, root: 57, scale: SCALES.kafi, drums: 'DnDnc.nnDnDnc.nc', bass: [0, 3, 4, 3], density: 0.72, drone: false },
 };
 
 const midi = (n: number) => 440 * Math.pow(2, (n - 69) / 12);

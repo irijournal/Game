@@ -6,7 +6,8 @@ import { GAME_SUBTITLE, GAME_TITLE, TAGLINE } from '../content/slogans';
 import type { StartOptions } from '../engine/Engine';
 import { activeMissions, levelUnlocked, priceOf, purchase, routeUnlocked, totalStars, type SaveData } from '../save/save';
 import { CHARACTERS, CHARACTER_ORDER, ROUTES, RUN_STYLES, TRAILS, type CosmeticDef } from '../sim/characters';
-import { RACE_LENGTH } from '../sim/constants';
+import { MAYHEM_LENGTH, RACE_LENGTH } from '../sim/constants';
+import { FAKE_PROMISES, MAYHEM_DISCLAIMER } from '../content/mayhem';
 import { dayKey } from '../sim/missions';
 import { THEME_INSPIRATION, THEME_NAMES } from '../sim/themes';
 import type { CharacterId, EncounterKind } from '../sim/types';
@@ -191,8 +192,8 @@ export function MenuScreen({ go }: { go: Go }) {
           <button className="btn" onClick={() => go('modes')}>
             🧢 Rivalry • Race • Free Run
           </button>
-          <button className="btn" onClick={() => go('debate')}>
-            🎤 Debate Arena
+          <button className="btn" onClick={() => go('mayhem')}>
+            🚁 Manifesto Mayhem
           </button>
           <button className="btn" onClick={() => go('board')}>
             🏅 Achievements &amp; Facts
@@ -366,6 +367,48 @@ export function ModeScreen({ go, start }: { go: Go; start: (o: StartOptions) => 
               Run ▸
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function MayhemScreen({ go, start }: { go: Go; start: (o: StartOptions) => void }) {
+  const save = useSave();
+  const hero = heroFor(save);
+  const [samples] = useState(() => [...FAKE_PROMISES].sort(() => Math.random() - 0.5).slice(0, 4));
+  return (
+    <div className="panel-screen">
+      <Header title="Manifesto Mayhem" go={go} />
+      <div className="list">
+        <div className="card level-intro mayhem-intro">
+          <div className="level-intro-head">
+            <div>
+              <h3>🚁 Manifesto Mayhem</h3>
+              <small className="muted">The rival caricature’s campaign cycle-copter is airborne — and it is full of promises.</small>
+            </div>
+          </div>
+          <ul className="level-facts">
+            <li>Crates of fictional promises parachute onto the road. A red ring shows where each one lands.</li>
+            <li>Dodge them for {fmt(MAYHEM_LENGTH)} m until the manifesto runs empty; collect real development tokens on the way.</li>
+            <li>One bump only slows you down while the stumble guard is ready; a second one ends the run.</li>
+          </ul>
+          <div className="promise-samples">
+            {samples.map((p) => (
+              <span key={p} className="promise-chip">
+                📦 {p}
+              </span>
+            ))}
+          </div>
+          <div className="row">
+            <button className="btn primary huge" onClick={() => start({ mode: 'mayhem', character: hero })} autoFocus>
+              ▶ PLAY AS {CHARACTERS[hero].shortName.toUpperCase()}
+            </button>
+          </div>
+          <p className="muted center">
+            Best {fmt(save.best.mayhem)} • Wins {fmt(save.stats.mayhemWins)} • Promises dodged {fmt(save.stats.fakePromisesDodged)}
+          </p>
+          <p className="muted center small-print">{MAYHEM_DISCLAIMER}</p>
         </div>
       </div>
     </div>
@@ -610,6 +653,7 @@ export function ScoresScreen({ go }: { go: Go }) {
           {row('Rivalry Mode', fmt(save.best.rivalry))}
           {row('Development Race', fmt(save.best.race))}
           {row('Free Run', fmt(save.best.free))}
+          {row('Manifesto Mayhem', fmt(save.best.mayhem))}
           {row('Longest run', `${fmt(save.bestDistance)} m`)}
         </div>
         <div className="card stats">
@@ -626,7 +670,8 @@ export function ScoresScreen({ go }: { go: Go }) {
           <h3>Rivalry record</h3>
           {row('Red Cap Challenges won', fmt(s.rivalWins))}
           {row('Accountability Gates passed', `${fmt(s.quizCorrect)} / ${fmt(s.quizAnswered)}`)}
-          {row('Debates won', fmt(s.debatesWon))}
+          {row('Manifesto Mayhem wins', fmt(s.mayhemWins))}
+          {row('Fictional promises dodged', fmt(s.fakePromisesDodged))}
           {row('Development Races won', fmt(s.racesWon))}
           {row('Best Rivalry stage', fmt(s.bestStage))}
           {row('Showdowns survived', fmt(s.chasesSurvived))}

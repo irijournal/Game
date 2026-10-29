@@ -6,7 +6,8 @@ import { QUIZ, quizById } from '../content/quiz';
 import { activeMissions, applyRun, perksFor, type RunResultInfo, type SaveStore, type Settings } from '../save/save';
 import { Autopilot } from '../sim/autopilot';
 import { CHARACTERS } from '../sim/characters';
-import { LANE_X, RACE_LENGTH, RACE_PACE } from '../sim/constants';
+import { LANE_X, MAYHEM_LENGTH, RACE_LENGTH, RACE_PACE } from '../sim/constants';
+import { DROP_KINDS } from '../sim/obstacles';
 import { hashString } from '../sim/rng';
 import { Simulation, type RunSummary, type SimEvent } from '../sim/simulation';
 import { THEME_NAMES } from '../sim/themes';
@@ -20,9 +21,8 @@ import { InputController, type InputAction } from './input';
 import { buildCharacter, disposeRig } from './view/characterModels';
 import type { CharacterRig } from './view/characterRig';
 import { INTRO_LENGTH, introShot, RivalDirector } from './view/cinematics';
-import { DebateStage, type Speaker } from './view/debateStage';
 import { Particles } from './view/effects';
-import { EncounterViews, RIBBON_RACE } from './view/encounterViews';
+import { dropHeight, EncounterViews, RIBBON_RACE } from './view/encounterViews';
 import { basic, mergeStatic, mesh, plane } from './view/materials';
 import { buildAutoRickshaw } from './view/vehicles';
 import { debugCollider, ObstaclePool, type ObstacleView } from './view/obstacleViews';
@@ -37,7 +37,7 @@ export interface StartOptions {
   level?: LevelId;
 }
 
-type EngineMode = 'boot' | 'intro' | 'attract' | 'showcase' | 'game' | 'debate';
+type EngineMode = 'boot' | 'intro' | 'attract' | 'showcase' | 'game';
 
 const CELEBRATION = 2.2;
 const LETTERS = ['A', 'B', 'C'];
@@ -74,7 +74,6 @@ export class Engine {
   private pickups = new PickupViews();
   private rival = new RivalDirector();
   private encounters = new EncounterViews();
-  private debate = new DebateStage();
   private pool = new ObstaclePool();
   private input!: InputController;
   private player: CharacterRig | null = null;
@@ -143,7 +142,7 @@ export class Engine {
     this.container.appendChild(canvas);
 
     this.world = new World(this.scene);
-    this.scene.add(this.fx.points, this.pickups.group, this.rival.group, this.encounters.group, this.debate.group);
+    this.scene.add(this.fx.points, this.pickups.group, this.rival.group, this.encounters.group);
     (this.playerShadow.material as THREE.MeshBasicMaterial).map = blobShadow();
     this.playerShadow.rotation.x = -Math.PI / 2;
     this.scene.add(this.playerShadow);
@@ -313,7 +312,6 @@ export class Engine {
   showShowcase(id: CharacterId): void {
     this.endRun();
     this.mode = 'showcase';
-    this.debate.group.visible = false;
     const p = this.setPlayer(id);
     p.root.visible = true;
     p.root.position.set(0, 0, 0);
@@ -366,7 +364,6 @@ export class Engine {
     this.flourish = flourish && !this.settings.shortCinematics ? Engine.FLOURISH : 0;
     this.save.refreshDay();
     this.clearRunViews();
-    this.debate.group.visible = false;
     const d = this.save.data;
     const level = opts.mode === 'campaign' ? levelById(opts.level ?? 'expressway') : undefined;
     // Rivalry Mode always puts the player in the rival's shoes.
@@ -376,7 +373,7 @@ export class Engine {
     const vehicle = CHARACTERS[rival].vehicle;
     // Levels are fixed courses (learnable for 3 stars); other modes vary.
     const seed = level ? hashString('level:' + level.id) : (Math.random() * 2 ** 31) >>> 0;
-    const startTheme: ThemeId = level ? level.id : opts.mode === 'rivalry' ? 'lawandorder' : d.startRoute;
+    const startTheme: ThemeId = level ? level.id : opts.mode === 'rivalry' || opts.mode === 'mayhem' ? 'lawandorder' : d.startRoute;
     this.sim = new Simulation({
       mode: opts.mode,
       character,
@@ -389,6 +386,7 @@ export class Engine {
       tutorial: !d.flags.tutorialDone,
       level: level ? { id: level.id, length: level.length, tokenGoal: level.tokenGoal, token: level.token, diff: level.diff, events: level.events } : undefined,
       race: opts.mode === 'race' ? { length: RACE_LENGTH, rivalPace: RACE_PACE } : undefined,
+      mayhem: opts.mode === 'mayhem' ? { length: MAYHEM_LENGTH } : undefined,
       perks: perksFor(d),
       quizPool: opts.mode === 'free' ? QUIZ.map((q) => ({ id: q.id, answer: q.answer })) : undefined,
       quizAnswers: Object.fromEntries(QUIZ.map((q) => [q.id, q.answer])),
@@ -421,13 +419,17 @@ export class Engine {
       this.cam.targetLook.set(0, 1.3, 0);
     }
     this.cam.snap();
-    this.setTrack(this.sim.theme);
+    this.setTrack(this.sim.isMayhem ? 'mayhem' : this.sim.theme);
     this.emit({ type: 'paused', paused: false });
     this.emit({ type: 'clearCaptions' });
     (document.activeElement as HTMLElement | null)?.blur?.();
     if (level) this.caption(`LEVEL ${level.num}: ${level.name.toUpperCase()}`, level.mission, 'info', 2000, 0);
     else if (opts.mode === 'rivalry') this.caption('RIVALRY MODE', 'You play the rival. A Political Challenge is ahead — escape the Governance Showdown to clear each stage.', 'info', 2200, 0);
     else if (opts.mode === 'race') this.caption('DEVELOPMENT RACE', 'Race for roads, jobs and better public services! Every development token = +3 m.', 'info', 2200, 0);
+    else if (opts.mode === 'mayhem') {
+      this.caption('MANIFESTO MAYHEM!', 'The rival’s cycle-copter is dropping fictional promises. Dodge them — collect real development!', 'challenge', 2400, 0);
+      this.rivalSays(pick(RIVAL_LINES.mayhemStart));
+    }
     this.lastT = performance.now();
     this.pushHud(true);
   }
@@ -446,35 +448,6 @@ export class Engine {
     this.paused = false;
     this.showShowcase(this.save.data.selectedCharacter);
     this.emit({ type: 'paused', paused: false });
-  }
-
-  /** Debate Arena: the hero and the rival on stage (dialogue is in the UI). */
-  showDebate(): void {
-    this.endRun();
-    this.mode = 'debate';
-    const d = this.save.data;
-    const hero: CharacterId = d.selectedCharacter === 'akhilesh' ? 'yogi' : d.selectedCharacter;
-    this.debate.configure(hero, d.equipped[hero].outfit, 'akhilesh', d.equipped.akhilesh.outfit);
-    this.debate.group.visible = true;
-    if (this.player) this.player.root.visible = false;
-    this.world.setTheme('lawandorder', true);
-    this.world.resetBlocks();
-    this.input.enabled = false;
-    this.cam.snap();
-    this.setTrack('debate');
-  }
-
-  debateSpeaker(who: Speaker): void {
-    this.debate.speaker = who;
-  }
-
-  debateResult(winner: 'hero' | 'rival'): void {
-    this.debate.speaker = null;
-    this.debate.result = winner;
-    if (winner === 'hero') {
-      this.audio.play('fanfare');
-      this.fx.confetti({ x: -2.4, y: 3.5, z: 0.5 }, [0xff8c1a, 0xffffff, 0x1f8a4c, 0xffd23a], 60, false);
-    } else this.audio.play('wrong');
   }
 
   private endRun(): void {
@@ -550,9 +523,6 @@ export class Engine {
       case 'game':
         this.tickGame(dt);
         break;
-      case 'debate':
-        this.tickDebate(dt);
-        break;
     }
     this.cam.update(dt);
   }
@@ -612,19 +582,6 @@ export class Engine {
     this.world.update(dt, this.menuD, this.cam.camera, () => route, () => null, false);
     this.updateShadow(0, 0, 0);
     this.fx.update(dt, this.mode === 'attract' ? dt * 11 : 0);
-  }
-
-  private tickDebate(dt: number): void {
-    this.debate.update(dt, this.time);
-    const portrait = this.cam.portrait;
-    this.cam.stiffness = 3;
-    const sway = Math.sin(this.time * 0.3) * 0.6;
-    this.cam.targetPos.set(sway, 3.5 + (portrait ? 1.6 : 0), 11 + (portrait ? 7 : 0));
-    this.cam.targetLook.set(0, portrait ? 0.4 : 1.4, 0);
-    this.cam.fovBoost = 0;
-    this.world.update(dt, 0, this.cam.camera, () => 'lawandorder', () => null, false);
-    this.playerShadow.visible = false;
-    this.fx.update(dt, 0);
   }
 
   private tickGame(dt: number): void {
@@ -764,6 +721,7 @@ export class Engine {
       power: power ? { ...power, t: Math.round(power.t * 10) / 10 } : null,
       level: ldef ? { id: ldef.id, num: ldef.num, name: ldef.name, progress: r2(sim.progress), tokens: sim.stats.devTokens, goal: ldef.tokenGoal, token: ldef.token } : null,
       race: sim.cfg.race ? { progress: r2(sim.progress), rival: r2(sim.rivalProgress) } : null,
+      mayhem: sim.cfg.mayhem ? { progress: r2(sim.progress), dodged: sim.stats.fakePromisesDodged } : null,
       quiz,
       encounter: enc ? { kind: enc.kind, got: enc.got, total: enc.total, failed: enc.failed, metres: Math.max(0, Math.round(enc.s1 - sim.d)) } : null,
       devTokens: sim.stats.devTokens,
@@ -885,6 +843,14 @@ export class Engine {
         this.obstacleViews.set(ob.id, v);
       }
       v.root.position.set(LANE_X[ob.lane], 0, z);
+      if (sim.isMayhem && DROP_KINDS.has(ob.kind)) {
+        // Manifesto Mayhem: the crate parachutes down onto its (already
+        // validated) spot well before the runner gets there.
+        const h = dropHeight(z);
+        v.root.position.y = h;
+        v.root.rotation.y = h > 0 ? Math.sin(this.time * 2.5 + ob.id) * 0.25 : 0;
+        v.chute?.forEach((c) => (c.visible = h > 0.05));
+      }
       v.tick?.(this.time, z);
       if (ob.gantry) {
         let g = this.gantries.get(ob.id);
@@ -1101,6 +1067,7 @@ export class Engine {
         this.setTrack('none');
         break;
       case 'gameOver':
+        if (sim.isMayhem && !e.summary.completed) this.rivalSays(pick(RIVAL_LINES.mayhemWon));
         this.finishRun(e.summary, true);
         break;
       case 'mission':
@@ -1141,6 +1108,13 @@ export class Engine {
         this.heroSays();
         this.rivalSays(pick(RIVAL_LINES.ribbonLate));
         this.fx.confetti({ x: p.x, y: 3, z: -2 }, [0xff8c1a, 0xffffff, 0x1f8a4c, 0xffd23a], 90);
+        break;
+      case 'mayhemEnd':
+        a.play('fanfare');
+        this.caption('MANIFESTO EMPTY!', `You dodged ${e.dodged} fictional promises • +${e.points}`, 'success', 2200, 0);
+        this.fx.confetti({ x: p.x, y: 3, z: -2 }, [0xff8c1a, 0xffffff, 0x1f8a4c, 0xffd23a], 90);
+        this.heroSays();
+        this.rivalSays(pick(RIVAL_LINES.mayhemEmpty));
         break;
       case 'raceEnd':
         if (e.won) {
@@ -1256,7 +1230,7 @@ export class Engine {
     this.audio.engine(false);
     if (!show) return;
     // A short victory beat before the reward screen.
-    if (summary.level?.completed || summary.race) {
+    if (summary.level?.completed || summary.race || (summary.mode === 'mayhem' && summary.completed)) {
       this.pendingResult = { summary, info };
       this.celebrateT = CELEBRATION;
     } else this.emit({ type: 'gameOver', summary, info });

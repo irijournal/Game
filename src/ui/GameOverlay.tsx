@@ -153,6 +153,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
             </div>
             {hud.level && <LevelBar level={hud.level} />}
             {hud.race && <RaceBar race={hud.race} you={CHARACTERS[hud.character].shortName} rival={CHARACTERS[hud.rival].shortName} tokens={hud.devTokens} />}
+            {hud.mayhem && <MayhemBar mayhem={hud.mayhem} tokens={hud.devTokens} />}
             {showdowns && (
               <div className="meter" title="A fictional game meter, not a measurement of anything real">
                 <div className="meter-label">
@@ -346,6 +347,20 @@ function LevelBar({ level }: { level: NonNullable<HudSnapshot['level']> }) {
   );
 }
 
+function MayhemBar({ mayhem, tokens }: { mayhem: NonNullable<HudSnapshot['mayhem']>; tokens: number }) {
+  return (
+    <div className="progress-box mayhem">
+      <div className="meter-label">🚁 MANIFESTO MAYHEM</div>
+      <div className="bar progress manifesto">
+        <div style={{ width: `${(1 - mayhem.progress) * 100}%` }} />
+      </div>
+      <div className="tokens">
+        📦 {mayhem.dodged} dodged • ⭐ {tokens}
+      </div>
+    </div>
+  );
+}
+
 function RaceBar({ race, you, rival, tokens }: { race: NonNullable<HudSnapshot['race']>; you: string; rival: string; tokens: number }) {
   const ahead = race.progress >= race.rival;
   return (
@@ -469,7 +484,7 @@ function GameOver({
   const level = s.level ? levelById(s.level.id) : undefined;
   const next = level ? LEVELS[level.num] : undefined;
   const nextOpen = next ? levelUnlocked(save, next.id) : false;
-  const won = !!(s.level?.completed || s.race?.won);
+  const won = !!(s.level?.completed || s.race?.won || (s.mode === 'mayhem' && s.completed));
   const title = level
     ? s.level?.completed
       ? 'LEVEL COMPLETE!'
@@ -478,6 +493,10 @@ function GameOver({
       ? s.race.won
         ? 'RACE WON!'
         : 'RIVAL WINS THE RACE'
+      : s.mode === 'mayhem'
+        ? s.completed
+          ? 'MANIFESTO EMPTY!'
+          : 'BURIED IN PROMISES!'
       : s.chaseResult === 'failed'
         ? 'CAUGHT IN THE SHOWDOWN!'
         : s.reason === 'quit'
@@ -529,6 +548,12 @@ function GameOver({
             <div>
               <span>{s.race.won ? 'Winning margin' : 'Behind by'}</span>
               <b>{Math.abs(s.race.margin)} m</b>
+            </div>
+          )}
+          {s.mode === 'mayhem' && (
+            <div>
+              <span>Fictional promises dodged</span>
+              <b>{s.stats.fakePromisesDodged}</b>
             </div>
           )}
           {s.mode === 'rivalry' && (
@@ -627,7 +652,7 @@ function GameOver({
           </>
         ) : (
           <button className="btn primary huge" disabled={!armed} onClick={onRetry} autoFocus>
-            ↻ {level ? 'Replay level' : s.race ? 'Race again' : 'Retry'}
+            ↻ {level ? 'Replay level' : s.race ? 'Race again' : s.mode === 'mayhem' ? 'Fly again' : 'Retry'}
           </button>
         )}
         <button className="btn" disabled={!armed} onClick={onMenu}>

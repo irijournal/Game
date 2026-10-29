@@ -3,7 +3,7 @@ import { OBSTACLES, THEME_OBSTACLES, type ClassWeights } from './obstacles';
 import type { Rng } from './rng';
 import type { Lane, ObstacleClass, ObstacleKind, PickupKind, Row, RowCell, ThemeId, TokenVariant } from './types';
 
-export type ChunkKind = 'normal' | 'chase' | 'development' | 'coinRush' | 'redCap' | 'promises';
+export type ChunkKind = 'normal' | 'chase' | 'development' | 'coinRush' | 'redCap' | 'promises' | 'mayhem';
 
 export interface GenContext {
   kind: ChunkKind;
@@ -126,6 +126,7 @@ function weightsFor(ctx: GenContext): ClassWeights {
     case 'development':
     case 'redCap':
     case 'promises':
+    case 'mayhem':
       return THEME_OBSTACLES[ctx.kind];
     default:
       return THEME_OBSTACLES[ctx.theme];

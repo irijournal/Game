@@ -4,12 +4,15 @@ import type { ObstacleKind } from '../../sim/types';
 import { ROAD_HALF_WIDTH } from '../../sim/constants';
 import { box, cone, cyl, lambert, mergeStatic, mesh, plane, sphere, toon, torus, basic } from './materials';
 import { citizen } from './scenery';
+import { FAKE_PROMISES } from '../../content/mayhem';
 import { blobShadow, bunting, canvasTexture, FONT, sign, stripes } from './textures';
 import { buildBus, buildMediaVan, buildTruck } from './vehicles';
 
 export interface ObstacleView {
   root: THREE.Group;
   kind: ObstacleKind;
+  /** Parachute parts shown while a Manifesto Mayhem crate is falling. */
+  chute?: THREE.Object3D[];
   /** Optional per-frame animation (blinking lamps, camera flashes...). */
   tick?: (t: number, rel: number) => void;
 }
@@ -35,6 +38,38 @@ function garland(root: THREE.Group, x0: number, x1: number, y: number, z: number
     const t = i / n;
     root.add(mesh(sphere(0.085, 6, 5), toon(MARIGOLD[i % 3]), x0 + (x1 - x0) * t, y - Math.sin(t * Math.PI) * sag, z));
   }
+}
+
+function promiseCrate(root: THREE.Group, w: number, h: number, y: number, z: number, label: string | null): void {
+  const wood = toon(0xc9a06a);
+  root.add(mesh(box(w, h, 0.9), wood, 0, y + h / 2, z));
+  root.add(mesh(box(w + 0.02, 0.1, 0.92), toon(0x8a5a2b), 0, y + h * 0.15, z));
+  root.add(mesh(box(w + 0.02, 0.1, 0.92), toon(0x8a5a2b), 0, y + h * 0.85, z));
+  // Gift wrapping: every promise comes beautifully packaged.
+  root.add(mesh(box(0.14, h + 0.02, 0.93), toon(0xd8202a), 0, y + h / 2, z));
+  if (label) {
+    const face = lambert(0xffffff, { map: sign(label, { bg: '#fffaf0', fg: '#c81e1e', border: '#1a1a1a', sub: 'FICTIONAL PROMISE • SATIRE', subColor: '#1a1a1a', w: 512, h: 256 }) });
+    root.add(mesh(plane(w - 0.2, h * 0.7), face, 0, y + h / 2, z + 0.47));
+  }
+}
+
+function parachute(root: THREE.Group, top: number, z: number): void {
+  // Parts are named so they survive mergeStatic (kept meshes are re-parented one by one).
+  const chute = new THREE.Group();
+  chute.userData.keep = true;
+  const canopy = mesh(new THREE.SphereGeometry(1.1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), toon(0xd8202a, { side: THREE.DoubleSide }), 0, top + 1.3, z);
+  canopy.scale.y = 0.55;
+  chute.add(canopy);
+  for (const x of [-0.8, 0.8]) {
+    const line = mesh(cyl(0.01, 0.01, 1.4, 4), toon(0x333333), x * 0.6, top + 0.65, z);
+    line.rotation.z = x * 0.45;
+    chute.add(line);
+  }
+  chute.children.forEach((c) => {
+    c.name = 'chute';
+    c.visible = false;
+  });
+  root.add(chute);
 }
 
 function gapHole(root: THREE.Group, depth: number, zc: number, floor: number, wallColor: number): void {
@@ -597,6 +632,26 @@ function build(kind: ObstacleKind, variant: number): ObstacleView {
       root.add(shadowUnder(2.1, 1.4));
       break;
     }
+
+    // ------------------------------------------------- Manifesto Mayhem
+    case 'promiseCrate': {
+      const label = FAKE_PROMISES[variant % FAKE_PROMISES.length];
+      promiseCrate(root, 1.8, 0.92, 0.04, zc, label);
+      root.add(mesh(sphere(0.14, 8, 6), toon(0xd8202a), 0, 1.02, zc));
+      parachute(root, 1.0, zc);
+      root.add(shadowUnder(2.2, 1.3));
+      break;
+    }
+    case 'promiseStack': {
+      const label = FAKE_PROMISES[variant % FAKE_PROMISES.length];
+      promiseCrate(root, 1.9, 0.9, 0, zc, null);
+      promiseCrate(root, 1.8, 0.9, 0.92, zc, label);
+      promiseCrate(root, 1.6, 0.9, 1.84, zc, null);
+      root.add(mesh(box(1.0, 0.3, 0.05), lambert(0xffffff, { map: sign('VAADA', { bg: '#d8202a', fg: '#fff', sub: 'fictional', w: 256, h: 90 }) }), 0, 2.3, zc + 0.47));
+      parachute(root, 2.75, zc);
+      root.add(shadowUnder(2.4, def.depth + 0.6));
+      break;
+    }
   }
   view.root = mergeStatic(root);
   return view;
@@ -645,11 +700,13 @@ export class ObstaclePool {
   private templates = new Map<string, THREE.Group>();
   private gantryTemplate: THREE.Group | null = null;
   private banners = 0;
+  private promises = 0;
   created = 0;
 
   private create(kind: ObstacleKind): ObstacleView {
     this.created++;
-    const variant = kind === 'bannerArch' ? this.banners++ % BANNERS.length : 0;
+    const variant =
+      kind === 'bannerArch' ? this.banners++ % BANNERS.length : kind === 'promiseCrate' || kind === 'promiseStack' ? this.promises++ % FAKE_PROMISES.length : 0;
     const key = `${kind}:${variant}`;
     let tpl = this.templates.get(key);
     if (!tpl) {
@@ -657,6 +714,11 @@ export class ObstaclePool {
       this.templates.set(key, tpl);
     }
     const view: ObstacleView = { root: tpl.clone(), kind };
+    const chute: THREE.Object3D[] = [];
+    view.root.traverse((o) => {
+      if (o.name === 'chute') chute.push(o);
+    });
+    if (chute.length) view.chute = chute;
     attachTick(view);
     return view;
   }
@@ -666,6 +728,7 @@ export class ObstaclePool {
     const v = list?.pop() ?? this.create(kind);
     v.root.visible = true;
     v.root.rotation.set(0, 0, 0);
+    v.chute?.forEach((c) => (c.visible = false));
     v.root.scale.set(1, 1, 1);
     return v;
   }

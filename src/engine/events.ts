@@ -33,6 +33,8 @@ export interface HudSnapshot {
   level: { id: ThemeId; num: number; name: string; progress: number; tokens: number; goal: number; token: TokenVariant } | null;
   /** Development Race progress (0..1 for both runners). */
   race: { progress: number; rival: number } | null;
+  /** Manifesto Mayhem progress (manifesto left) and fictional promises dodged. */
+  mayhem: { progress: number; dodged: number } | null;
   /** Accountability Gate being approached or just passed. */
   quiz: { id: string; q: string; options: [string, string, string]; metres: number; chosen: number | null; correct: boolean | null } | null;
   /** Red Cap Challenge / Promises vs Performance in progress. */
@@ -60,6 +62,7 @@ export const EMPTY_HUD: HudSnapshot = {
   power: null,
   level: null,
   race: null,
+  mayhem: null,
   quiz: null,
   encounter: null,
   devTokens: 0,
@@ -101,6 +104,7 @@ export class HudStore {
       JSON.stringify(a.power) === JSON.stringify(next.power) &&
       JSON.stringify(a.level) === JSON.stringify(next.level) &&
       JSON.stringify(a.race) === JSON.stringify(next.race) &&
+      JSON.stringify(a.mayhem) === JSON.stringify(next.mayhem) &&
       JSON.stringify(a.quiz) === JSON.stringify(next.quiz) &&
       JSON.stringify(a.encounter) === JSON.stringify(next.encounter)
     )

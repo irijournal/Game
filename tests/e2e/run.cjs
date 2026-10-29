@@ -442,36 +442,45 @@ const release = (page) => page.evaluate(() => (window.__UPRUN__.engine.manual = 
     await ctx.close();
   });
 
-  // 11. Debate Arena: fictional dialogue; winnable and losable; recorded once.
-  await scenario('Debate Arena: win (achievement) and lose', async () => {
+  // 11. Manifesto Mayhem: crates of fictional promises parachute from the
+  // rival's cycle-copter onto validated spots; the manifesto runs empty.
+  await scenario('Manifesto Mayhem: falling promises → manifesto empty', async () => {
     const { page, errors, ctx } = await newPage(browser);
     await page.goto(BASE + '?nointro');
     await ready(page);
-    const play = async (best) => {
-      for (let k = 0; k < 80; k++) {
-        if ((await page.isVisible('text=DEBATE WON!')) || (await page.isVisible('text=THE CROWD WANTS MORE'))) break;
-        if (await page.isVisible('.debate-options .btn')) {
-          // Replies are shuffled each game: pick by the audience score.
-          const scores = await page.$$eval('.debate-options .btn', (bs) => bs.map((b) => Number(b.dataset.score)));
-          const target = best ? Math.max(...scores) : Math.min(...scores);
-          await page.click(`.debate-options .btn >> nth=${scores.indexOf(target)}`);
-        } else if (await page.isVisible('text=Continue')) await page.click('text=Continue');
-        await page.waitForTimeout(80);
+    await page.click('text=Manifesto Mayhem');
+    const label = await page.isVisible('text=invented exaggeration');
+    await page.evaluate(() => window.__UPRUN__.autopilot(true));
+    await page.click('text=PLAY AS');
+    let falling = false;
+    let copter = false;
+    let sum = null;
+    for (let k = 0; k < 400 && !sum; k++) {
+      const s = await page.evaluate(() => {
+        const e = window.__UPRUN__.engine;
+        e.stepManual(0.5, 1 / 60);
+        const views = [...e.obstacleViews.values()];
+        return {
+          falling: views.some((v) => (v.kind === 'promiseCrate' || v.kind === 'promiseStack') && v.root.position.y > 1 && v.chute && v.chute.every((c) => c.visible)),
+          copter: e.encounters.copter.visible && e.encounters.copter.position.y > 5,
+          sum: e.sim.summary ? { completed: e.sim.summary.completed, dodged: e.sim.stats.fakePromisesDodged, chases: e.sim.chase.count } : null,
+        };
+      });
+      if (s.falling && !falling) {
+        falling = true;
+        await release(page);
+        await page.screenshot({ path: path.join(SHOTS, '11_mayhem.png') });
       }
-    };
-    await page.click('text=Debate Arena');
-    const label = await page.isVisible('text=All dialogue is fictional');
-    await page.waitForSelector('.debate-options .btn', { timeout: 6000 });
-    await page.screenshot({ path: path.join(SHOTS, '11_debate.png') });
-    await play(true);
-    const won = await page.isVisible('text=DEBATE WON!');
-    const ach = await page.isVisible('text=Achievement unlocked: Debate Champion');
-    await page.click('text=Debate again');
-    await play(false);
-    const lost = await page.isVisible('text=THE CROWD WANTS MORE');
-    const debatesWon = await sim(page, () => window.__UPRUN__.save.data.stats.debatesWon);
-    const ok = label && won && ach && lost && debatesWon === 1 && errors.length === 0;
-    record('Debate Arena: win (achievement) and lose', ok, `label=${label} won=${won} achievement=${ach} lost=${lost} debatesWon=${debatesWon} errors=${errors.length}`);
+      copter = copter || s.copter;
+      sum = s.sum;
+    }
+    await step(page, 2.5);
+    await release(page);
+    const title = (await page.isVisible('text=MANIFESTO EMPTY!')) ? 'empty' : (await page.isVisible('text=BURIED IN PROMISES!')) ? 'buried' : 'none';
+    const saved = await sim(page, () => ({ wins: window.__UPRUN__.save.data.stats.mayhemWins, dodged: window.__UPRUN__.save.data.stats.fakePromisesDodged }));
+    await page.screenshot({ path: path.join(SHOTS, '11_mayhem_end.png') });
+    const ok = label && falling && copter && sum && sum.completed && sum.dodged > 10 && sum.chases === 0 && title === 'empty' && saved.wins === 1 && saved.dodged === sum.dodged && errors.length === 0;
+    record('Manifesto Mayhem: falling promises → manifesto empty', ok, `label=${label} falling=${falling} copter=${copter} result=${JSON.stringify(sum)} screen=${title} saved=${JSON.stringify(saved)} errors=${errors.length}`);
     await ctx.close();
   });
 
@@ -489,6 +498,7 @@ const release = (page) => page.evaluate(() => (window.__UPRUN__.engine.manual = 
       ['Missions', 'Daily missions'],
       ['Unlocks', 'Start route'],
       ['Settings', 'On-screen touch buttons'],
+      ['Manifesto Mayhem', 'Crates of fictional promises'],
     ];
     const res = [];
     for (const [btn, expect] of targets) {
@@ -628,7 +638,7 @@ const release = (page) => page.evaluate(() => (window.__UPRUN__.engine.manual = 
       const a = window.__UPRUN__.engine.audio;
       const cues = ['coin', 'jump', 'slide', 'lane', 'bump', 'stumble', 'crash', 'horn', 'stinger', 'success', 'mission', 'powerup', 'click', 'poof', 'token', 'bell', 'warn', 'correct', 'wrong', 'fanfare'];
       for (const c of cues) a.play(c);
-      const tracks = ['menu', 'expressway', 'ayodhya', 'airport', 'kisan', 'jankalyan', 'lawandorder', 'startup', 'viksit', 'chase', 'debate', 'menu'];
+      const tracks = ['menu', 'expressway', 'ayodhya', 'airport', 'kisan', 'jankalyan', 'lawandorder', 'startup', 'viksit', 'chase', 'mayhem', 'menu'];
       for (const t of tracks) {
         a.setTrack(t);
         await new Promise((r) => setTimeout(r, 120));

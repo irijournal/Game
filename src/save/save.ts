@@ -9,7 +9,7 @@ export const SAVE_KEY = 'uprun.save';
 export const LEGACY_KEY = 'uprun.save.v1';
 export const SAVE_VERSION = 3;
 const MAX_NUM = 1e9;
-const MODES: readonly ModeId[] = ['campaign', 'rivalry', 'race', 'free'];
+const MODES: readonly ModeId[] = ['campaign', 'rivalry', 'race', 'free', 'mayhem'];
 
 export type Quality = 'auto' | 'high' | 'low';
 
@@ -47,7 +47,8 @@ export interface SaveStats {
   rivalWins: number;
   quizAnswered: number;
   quizCorrect: number;
-  debatesWon: number;
+  mayhemWins: number;
+  fakePromisesDodged: number;
   racesWon: number;
   roadsCleared: number;
   promisesDelivered: number;
@@ -96,7 +97,8 @@ const EMPTY_STATS: SaveStats = {
   rivalWins: 0,
   quizAnswered: 0,
   quizCorrect: 0,
-  debatesWon: 0,
+  mayhemWins: 0,
+  fakePromisesDodged: 0,
   racesWon: 0,
   roadsCleared: 0,
   promisesDelivered: 0,
@@ -130,7 +132,7 @@ export function defaultSave(day = dayKey()): SaveData {
   return {
     version: SAVE_VERSION,
     coins: 0,
-    best: { overall: 0, campaign: 0, rivalry: 0, race: 0, free: 0 },
+    best: { overall: 0, campaign: 0, rivalry: 0, race: 0, free: 0, mayhem: 0 },
     bestDistance: 0,
     levels: emptyLevels(),
     badges: [],
@@ -462,6 +464,8 @@ export function applyRun(d: SaveData, run: RunSummary, missionProgress: Record<s
   s.obstaclesAvoided += r.dodges;
   if (run.mode === 'rivalry') s.bestStage = Math.max(s.bestStage, r.stage);
   if (run.race?.won) s.racesWon += 1;
+  s.fakePromisesDodged += r.fakePromisesDodged;
+  if (run.mode === 'mayhem' && run.completed) s.mayhemWins += 1;
 
   let missionRewards = 0;
   for (const id of d.missions.ids) {
@@ -519,12 +523,6 @@ export function applyRun(d: SaveData, run: RunSummary, missionProgress: Record<s
   d.flags.tutorialDone = true;
   const achievementsNow = updateAchievements(d);
   return { newBest, previousBest, coinsEarned: run.coins, missionRewards, unlockedNow, badgeEarned, nextLevelUnlocked, previousStars, achievementsNow, giftCoins };
-}
-
-/** Debate Arena result (UI-only mode). */
-export function applyDebate(d: SaveData, won: boolean): string[] {
-  if (won) d.stats.debatesWon += 1;
-  return updateAchievements(d);
 }
 
 export function priceOf(id: string): number {

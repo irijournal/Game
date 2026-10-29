@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyDebate, applyRun, defaultSave, levelUnlocked, perksFor, purchase, routeUnlocked, SaveStore, SAVE_KEY, validateSave, type StorageLike } from '../../save/save';
+import { applyRun, defaultSave, levelUnlocked, perksFor, purchase, routeUnlocked, SaveStore, SAVE_KEY, validateSave, type StorageLike } from '../../save/save';
 import type { RunSummary } from '../simulation';
 
 class MemStorage implements StorageLike {
@@ -37,7 +37,7 @@ function summary(over: Partial<RunSummary> = {}): RunSummary {
     stats: {
       distance: 800, coins: 40, chasesStarted: 1, chasesSurvived: 1, jumps: 3, slides: 2, jumpsOver: 2, slidesUnder: 1, dodges: 30, bumps: 0, collisions: 1,
       devTokens: 2, reportCards: 0, rivalChallenges: 0, rivalWins: 0, quizAnswered: 0, quizCorrect: 0, promisesDelivered: 0, roadsCleared: 0,
-      vikasRides: 0, cleanDistance: 500, laneChanges: 20, stage: 1,
+      vikasRides: 0, fakePromisesDodged: 0, cleanDistance: 500, laneChanges: 20, stage: 1,
     },
     level: null,
     race: null,
@@ -255,7 +255,7 @@ describe('campaign progress', () => {
     expect(perksFor(d)).toEqual({ powerupBoost: true, guardBoost: true, tokenBoost: false });
   });
 
-  it('records races, rivalry stages, debates and achievements', () => {
+  it('records races, rivalry stages, Manifesto Mayhem and achievements', () => {
     const d = defaultSave(DAY);
     const r = applyRun(d, summary({ mode: 'race', race: { won: true, margin: 40 } }), {});
     expect(d.stats.racesWon).toBe(1);
@@ -264,10 +264,15 @@ describe('campaign progress', () => {
     applyRun(d, summary({ mode: 'rivalry', character: 'akhilesh', stats }), {});
     expect(d.stats.bestStage).toBe(3);
     expect(d.achievements).toEqual(expect.arrayContaining(['ach.showdown', 'ach.governance']));
-    expect(applyDebate(d, false)).toEqual([]);
-    expect(applyDebate(d, true)).toEqual(['ach.debate']);
-    expect(d.stats.debatesWon).toBe(1);
+    // Manifesto Mayhem: a finished run counts as a win; dodges accumulate.
+    const may = { ...summary().stats, fakePromisesDodged: 61 };
+    const m1 = applyRun(d, summary({ mode: 'mayhem', completed: true, reason: 'completed', stats: may }), {});
+    expect(d.stats.mayhemWins).toBe(1);
+    expect(d.stats.fakePromisesDodged).toBe(61);
+    expect(m1.achievementsNow).toEqual(expect.arrayContaining(['ach.mayhem', 'ach.dodger']));
+    applyRun(d, summary({ mode: 'mayhem', completed: false, reason: 'stumble', stats: may }), {});
+    expect(d.stats.mayhemWins).toBe(1);
     // Achievements are never listed twice.
-    expect(applyDebate(d, true)).toEqual([]);
+    expect(applyRun(d, summary({ mode: 'mayhem', completed: true, reason: 'completed', stats: may }), {}).achievementsNow).toEqual([]);
   });
 });

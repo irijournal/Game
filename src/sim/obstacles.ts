@@ -77,6 +77,7 @@ export const OBSTACLES: Record<ObstacleKind, ObstacleDef> = {
   droneCrate: low(0.8, 1.0, 0.85, 0, 'Delivery-drone crate', false),
   laptopPile: low(0.9, 0.95, 0.9, 0, '“Free laptop 2012” pile'),
   cycleHeap: low(1.0, 1.0, 0.95, 0, '“Alliance parking” cycle heap', false),
+  promiseCrate: low(1.0, 1.0, 0.95, 0, 'Fictional-promise crate', false),
 
   pothole: gap(1.8, 0.85, 220, 'Pothole'),
   roadGap: gap(3.0, 1.0, 400, 'Work-zone gap'),
@@ -107,12 +108,13 @@ export const OBSTACLES: Record<ObstacleKind, ObstacleDef> = {
   maglevPod: wall(5.0, 2.8, 1.0, 150, 'Maglev pod'),
   familyMeeting: wall(1.6, 2.8, 0.98, 0, '“Parivaar meeting” sofa'),
   kaamPoster: wall(0.6, 2.8, 0.95, 0, '“Kaam bolta hai?” board'),
+  promiseStack: wall(1.3, 2.8, 0.95, 0, 'Stack of fictional-promise crates'),
 };
 
 type KindWeights = Partial<Record<ObstacleKind, number>>;
 export type ClassWeights = Record<ObstacleClass, KindWeights>;
 
-export type WeightKey = ThemeId | 'redCap' | 'promises' | 'chase' | 'development';
+export type WeightKey = ThemeId | 'redCap' | 'promises' | 'chase' | 'development' | 'mayhem';
 
 export const THEME_OBSTACLES: Record<WeightKey, ClassWeights> = {
   expressway: {
@@ -181,6 +183,14 @@ export const THEME_OBSTACLES: Record<WeightKey, ClassWeights> = {
     wall: { constructionWall: 4, truck: 1 },
     gap: { roadGap: 2, pothole: 1 },
   },
+  // Manifesto Mayhem: almost everything falls from the rival's cycle-copter.
+  // (No overheads or gaps: those cells become crates.)
+  mayhem: {
+    low: { promiseCrate: 6, laptopPile: 1 },
+    high: {},
+    wall: { promiseStack: 5, familyMeeting: 1 },
+    gap: {},
+  },
   chase: {
     low: { cones: 2, barricade: 2, fileStack: 1 },
     high: { scaffold: 2, boomBarrier: 2, bannerArch: 1 },
@@ -191,3 +201,6 @@ export const THEME_OBSTACLES: Record<WeightKey, ClassWeights> = {
 
 /** Kinds the bulldozer power-up drops ahead to push aside. */
 export const DEBRIS_KINDS: readonly ObstacleKind[] = ['cones', 'barricade', 'fileStack', 'pothole', 'delaySign', 'laptopPile'];
+
+/** Obstacles that Manifesto Mayhem drops from the sky (visual only: the course is generated and validated as usual). */
+export const DROP_KINDS: ReadonlySet<ObstacleKind> = new Set<ObstacleKind>(['promiseCrate', 'promiseStack', 'laptopPile']);

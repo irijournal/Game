@@ -18,7 +18,7 @@ This is a rebuild of the first version (*Political Rivalry Mode*) on the same en
 | All levels playable | Tested (auto) | e2e "all 8 campaign levels": each level is started from the campaign map, driven by input-only bot inputs to the finish, and must show the reward screen, award its badge and offer the next level. Unit: each level's fixed course is completable and spawns ≥ 1.8× its token goal. |
 | Rivalry event and bulldozer sequence reliable | Tested (auto) | e2e "Rivalry": warning caption → scripted stumble → hero entrance (rig visible) → "GOVERNANCE SHOWDOWN!" → showdown → escape → stage 2. Unit: rivalry flow test, plus a fuzz test over 40 seeds in which no state outlives its timeout. |
 | Chase winnable and losable | Tested (auto) | e2e "Rivalry" (escaped) and "showdown lost → results → retry". Unit: the bot survives ≥ 9/10 showdowns; doing nothing always gets caught. |
-| No decorative or broken buttons | Tested (auto) | e2e "menus: every button works": every main-menu button opens a working screen, and Back returns. The other scenarios drive the remaining buttons (Play, Start level, Next level, Replay, Retry, Resume, Main menu, Debate options, Continue, Debate again, touch buttons, filters, source links). |
+| No decorative or broken buttons | Tested (auto) | e2e "menus: every button works": every main-menu button opens a working screen, and Back returns. The other scenarios drive the remaining buttons (Play, Start level, Next level, Replay, Retry, Resume, Main menu, Manifesto Mayhem Play / Fly again, touch buttons, filters, source links). |
 | Mobile and desktop | Tested (auto) on emulated phone and desktop; **Blocked** on real devices | e2e keyboard (desktop), swipes and touch buttons (390×844), rotation to landscape mid-level; phone and desktop screenshots. |
 | Restart without refresh | Tested (auto) | e2e Retry gives a fresh run at normal speed (one loop). The 8-level scenario moves from level to level without reloading. |
 | No uncaught errors | Tested (auto) | Every e2e scenario asserts zero page errors and zero console errors. |
@@ -28,34 +28,34 @@ This is a rebuild of the first version (*Political Rivalry Mode*) on the same en
 | Rule | Status | Evidence |
 |---|---|---|
 | Facts typed as verified / government-reported / political claim / fictional, with source and date | Tested (auto) | `content.test.ts` checks every fact has a type, every verified/government entry has a source URL, and every level and quiz question references existing facts. The Evidence board filters by type (e2e). Full list: `docs/SOURCES.md`. |
-| No fabricated quotes; dialogue labelled fictional | Verified (visual) + content test | Debate lines and slogans live in `content/` and are labelled "fictional" in the UI (e2e checks the Debate Arena label). |
+| No fabricated quotes; dialogue labelled fictional | Verified (visual) + content test | Jokes, fictional promises and slogans live in `content/` and are labelled "fictional" in the UI (e2e checks the Manifesto Mayhem disclaimer). |
 | No points for accusations | Tested (auto) | Scoring buckets (`scoring.ts`) cover only distance, coins, dodges, showdowns, tokens, gates, challenges, levels, missions and discoveries. Quiz answers are facts or media-literacy questions. |
 | Negative roles only fictional | Verified (visual) | Obstacles are fictional signs ("GUNDARAJ?", "DELAYED", "UNFINISHED PROJECT"), each labelled fictional or a game slogan. No character is shown as a criminal. |
 | Bulldozer: no people, no homes, due process implied by absence | Tested (auto) | e2e power-up scenario: the helper bulldozer stays ahead of the runner on the carriageway (abs(x) < 3.7 m; crowds stand beyond 8 m) and clears only debris kinds (unit test). The showdown chaser stays on the shoulder behind the runner (e2e). |
 | Player keeps control; cinematic has a fixed length and a guaranteed exit | Tested (auto) | Full entrance 4 s, short 1.6 s, skippable after 0.35 s; fuzz test on timeouts. |
 | Political symbols: no logos or official emblems; no endorsement | Verified (visual) | Only colours (saffron/white/green) and plain saffron pennants are used. The About text and every disclaimer say "not an official app". |
 | SP-era projects credited; "not all built by BJP" | Tested (auto) (content) | Notes on the Agra–Lucknow Expressway, Purvanchal and Lucknow Metro entries; quiz question on who inaugurated the Agra–Lucknow Expressway (answer: Akhilesh Yadav). |
-| Game scores labelled fictional | Verified (visual) | Results, scoreboard, level intro, board and debate screens show the note (e2e checks the scoreboard). |
+| Game scores labelled fictional | Verified (visual) | Results, scoreboard, level intro, board and Mayhem screens show the note (e2e checks the scoreboard). |
 
 ## Feature checklist
 
 | Area | Feature | Status | Notes |
 |---|---|---|---|
 | Characters | Yogi-inspired hero: saffron, entrance + namaste, blessing victory pose, talk animation | Verified (visual) | Default playable character |
-| | Akhilesh-inspired rival: red cap; playable in Rivalry and Free Run; races, Red Cap Challenge, debate | Tested (auto) / Verified (visual) | Never shown as a criminal; appears in the debate and the race |
+| | Akhilesh-inspired rival: red cap; playable in Rivalry and Free Run; races, Red Cap Challenge, Mayhem cycle-copter pilot | Tested (auto) / Verified (visual) | Never shown as a criminal; pilots the Mayhem cycle-copter and runs the race |
 | | Karyakarta-ji (fictional volunteer, saffron scarf; rally-cap outfit) | Verified (visual) | Unlock at 2,000 m in one run or with coins |
-| | Fictional cheering citizens: farmers, workers, engineers, police, students, shopkeepers, pilgrims | Verified (visual) | Instanced crowds that bounce along the roadside, at the finish arch and in the debate audience |
+| | Fictional cheering citizens: farmers, workers, engineers, police, students, shopkeepers, pilgrims | Verified (visual) | Instanced crowds that bounce along the roadside, and at the finish arch |
 | Levels | 8 levels, each with its own environment, palette, skyline, music, obstacles, mission, token, progress bar, reward screen and replay | Tested (auto) / Verified (visual) | Environment tour screenshots of all 8 |
 | | Stars (finish / token goal / no collisions), badges with perks, level unlock order, Free Run routes unlock | Tested (auto) | `save.test.ts`, e2e 8-level scenario |
-| Rivalry system | Red Cap Challenge, Promises vs Performance, Accountability Gate, Debate Arena, Development Race, Governance Showdown, slogans | Tested (auto) | `campaign.test.ts`; e2e for gates, rivalry, race and debate |
+| Rivalry system | Red Cap Challenge, Promises vs Performance, Accountability Gate, Manifesto Mayhem, Development Race, Governance Showdown, slogans | Tested (auto) | `campaign.test.ts`; e2e for gates, rivalry, race and Mayhem |
 | Evidence board | Achievements (12), badges (8), evidence board with type filter and sources, slogans labelled as claims | Tested (auto) / Verified (visual) | e2e menus scenario |
-| Satire layer | Ribbon Race finish, four satirical obstacles (Parivaar Meeting, Kaam Bolta Hai?, Free Laptop 2012, Alliance Parking), UP RUN News flashes and menu ticker, hero/rival one-liners, 14-round shuffled debate, 8 new sourced quiz questions | Tested (auto) / Verified (visual) | `content.test.ts` (debate always winnable, shuffled; joke numbers match facts); e2e debate picks replies by score; screenshots of the obstacles, Ribbon Race and debate comebacks |
-| Scoreboard | Personal bests per mode, distance, tokens, missions, obstacles avoided, challenges, gates, debates, races, stage | Verified (visual) | "Performance is the real scoreboard" |
+| Satire layer | Ribbon Race finish, four satirical obstacles (Parivaar Meeting, Kaam Bolta Hai?, Free Laptop 2012, Alliance Parking), UP RUN News flashes and menu ticker, hero/rival one-liners, Manifesto Mayhem mode (cycle-copter drops fictional-promise crates onto validated spots), 8 new sourced quiz questions | Tested (auto) / Verified (visual) | `content.test.ts` (promise labels; joke numbers match facts); `campaign.test.ts` (Mayhem completable, mostly crates, no showdowns); e2e Mayhem scenario (crates fall with parachutes, manifesto empties, win saved); screenshots |
+| Scoreboard | Personal bests per mode, distance, tokens, missions, obstacles avoided, challenges, gates, races, Mayhem wins, promises dodged, stage | Verified (visual) | "Performance is the real scoreboard" |
 | Controls | Arrows / A D / Space / W / ↓ / S / Esc; swipes; optional on-screen buttons | Tested (auto) | e2e keyboard and phone scenarios |
 | Tech | Fixed-step sim, single loop, fair generator, reserved windows for gates and the finish | Tested (auto) | Generator: 10,000 chunks validated from every lane; physics cross-check |
 | Robustness | Resize and rotation, hidden-tab pause, no time jump, corrupt save recovery, v2→v3 save migration, storage-full fallback, no-WebGL message | Tested (auto) | e2e + `save.test.ts` |
 | Performance | Pooling (obstacles, pickups, gates), instancing, merged meshes, auto quality | Tested (auto) for resource plateau; **Blocked** for real-device fps | Draw calls ~160–330 across the 8 environments. Soak (15 game-minutes, 21 km through every environment): GPU geometries plateau at ~470–475 after the first full rotation, textures 166→173 over the last 5 minutes, heap flat (26 MB) |
-| Audio | 8 level tracks, chase and debate tracks, new cues (correct / wrong / fanfare) | Tested (auto) for errors; **Partial** for quality | Not listened to |
+| Audio | 8 level tracks, chase and Mayhem tracks, new cues (correct / wrong / fanfare) | Tested (auto) for errors; **Partial** for quality | Not listened to |
 
 ## Blocked / not verified here
 

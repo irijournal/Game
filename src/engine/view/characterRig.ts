@@ -398,7 +398,7 @@ export class CharacterRig {
         break;
       }
       case 'talk': {
-        // Debate gestures: an emphatic hand, then an open-palm sweep.
+        // Speech gestures (the Mayhem pilot): an emphatic hand, then an open-palm sweep.
         const beat = Math.sin(t * 3.2);
         o.spine = [0.05, Math.sin(t * 0.8) * 0.15, 0];
         o.head = [0.05 + Math.abs(Math.sin(t * 4.5)) * 0.08, Math.sin(t * 0.9) * 0.2, 0];

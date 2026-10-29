@@ -1861,3 +1861,27 @@ kbd {
     width: 360px;
   }
 }
+
+/* Manifesto Mayhem */
+.bar.progress.manifesto > div {
+  background: linear-gradient(90deg, #d8202a, #ff8c8c);
+}
+.promise-samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin: 4px 0 10px;
+}
+.promise-chip {
+  padding: 3px 10px;
+  border: 2px dashed #c81e1e;
+  border-radius: 10px;
+  background: #fff6f0;
+  color: #c81e1e;
+  font-weight: 800;
+  font-size: 13px;
+}
+.small-print {
+  font-size: 12px;
+}

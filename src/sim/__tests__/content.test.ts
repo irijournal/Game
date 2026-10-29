@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEBATE_ROUNDS, DEBATE_ROUNDS_PER_GAME, DEBATE_WIN_SCORE, pickDebate } from '../../content/debate';
+import { FAKE_PROMISES } from '../../content/mayhem';
 import { COMIC_WORDS, HERO_LINES, NEWS_HEADLINES, RIVAL_LINES } from '../../content/jokes';
 import { factById, FACTS } from '../../content/facts';
 import { LEVELS } from '../../content/levels';
@@ -47,28 +47,15 @@ describe('content integrity', () => {
     expect(factById('lucknowMetro')?.text).toMatch(/SP government/);
   });
 
-  it('debate rounds have three options and fictional framing', () => {
-    expect(DEBATE_ROUNDS.length).toBeGreaterThanOrEqual(4);
-    for (const r of DEBATE_ROUNDS) {
-      expect(r.options).toHaveLength(3);
-      expect(r.rival.length).toBeGreaterThan(5);
+  it('Manifesto Mayhem promises are absurd fictions, not real facts or claims', () => {
+    expect(FAKE_PROMISES.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(FAKE_PROMISES).size).toBe(FAKE_PROMISES.length);
+    // Crate labels must fit on a crate and must not reuse a fact's title.
+    const titles = new Set(FACTS.map((f) => f.title.toUpperCase()));
+    for (const p of FAKE_PROMISES) {
+      expect(p.length, p).toBeLessThanOrEqual(34);
+      expect(titles.has(p), p).toBe(false);
     }
-  });
-
-  it('every debate can be won, and replies are shuffled between games', () => {
-    for (const r of DEBATE_ROUNDS) expect(Math.max(...r.options.map((o) => o.score)), r.topic).toBe(3);
-    expect(DEBATE_ROUNDS_PER_GAME * 3).toBeGreaterThanOrEqual(DEBATE_WIN_SCORE);
-    let seed = 1;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    const firstBest = new Set<number>();
-    for (let g = 0; g < 30; g++) {
-      const game = pickDebate(rnd);
-      expect(game).toHaveLength(DEBATE_ROUNDS_PER_GAME);
-      expect(new Set(game.map((r) => r.topic)).size).toBe(DEBATE_ROUNDS_PER_GAME);
-      firstBest.add(game[0].options.findIndex((o) => o.score === 3));
-    }
-    // The best reply is not always in the same slot.
-    expect(firstBest.size).toBeGreaterThan(1);
   });
 
   it('comic writing is non-empty and kept separate from facts', () => {

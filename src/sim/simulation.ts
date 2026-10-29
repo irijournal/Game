@@ -33,7 +33,7 @@ import {
 import { contactFor, isOverhead, supportFrom, type RunnerBox } from './collision';
 import { buildChunk, placeCoins, type ChunkKind, type GenContext, type PickupSpec } from './generator';
 import { missionValue, type ActiveMission, type MissionStat } from './missions';
-import { DEBRIS_KINDS, OBSTACLES } from './obstacles';
+import { DEBRIS_KINDS, DROP_KINDS, OBSTACLES } from './obstacles';
 import { Player } from './player';
 import { Rng } from './rng';
 import { ScoreKeeper, type ScoreBreakdown } from './scoring';
@@ -91,6 +91,8 @@ export interface SimConfig {
   level?: LevelRuntime;
   /** Development Race only. */
   race?: { length: number; rivalPace: number };
+  /** Manifesto Mayhem only: distance until the rival's manifesto runs empty. */
+  mayhem?: { length: number };
   perks?: Perks;
   /** Quiz ids for procedurally scheduled Accountability Gates (free run). */
   quizPool?: { id: string; answer: number }[];
@@ -119,6 +121,8 @@ export interface RunStats {
   promisesDelivered: number;
   roadsCleared: number;
   vikasRides: number;
+  /** Manifesto Mayhem: rows of dropped fictional promises dodged. */
+  fakePromisesDodged: number;
   cleanDistance: number;
   laneChanges: number;
   stage: number;
@@ -179,7 +183,8 @@ export type SimEvent =
   | { type: 'guard'; ready: boolean }
   | { type: 'hint'; cls: ObstacleClass }
   | { type: 'levelComplete'; stars: number; points: number }
-  | { type: 'raceEnd'; won: boolean; margin: number };
+  | { type: 'raceEnd'; won: boolean; margin: number }
+  | { type: 'mayhemEnd'; dodged: number; points: number };
 
 export interface ChaseInfo {
   active: boolean;
@@ -251,6 +256,7 @@ export class Simulation {
     promisesDelivered: 0,
     roadsCleared: 0,
     vikasRides: 0,
+    fakePromisesDodged: 0,
     cleanDistance: 0,
     laneChanges: 0,
     stage: 1,
@@ -323,6 +329,7 @@ export class Simulation {
       for (const ev of cfg.level.events) this.addEncounter(ev.kind, ev.at, ev.len ?? 0, ev.quiz);
       this.reserved.push({ s0: cfg.level.length - FINISH_CLEAR, s1: Number.POSITIVE_INFINITY });
     }
+    if (cfg.mayhem) this.reserved.push({ s0: cfg.mayhem.length - FINISH_CLEAR, s1: Number.POSITIVE_INFINITY });
     this.ensureAhead();
   }
 
@@ -338,6 +345,10 @@ export class Simulation {
 
   get isRivalry(): boolean {
     return this.cfg.mode === 'rivalry';
+  }
+
+  get isMayhem(): boolean {
+    return this.cfg.mode === 'mayhem';
   }
 
   /** Themes rotate in endless modes and stay fixed in levels and races. */
@@ -357,6 +368,7 @@ export class Simulation {
   /** 0..1 progress through a level or race (0 in endless modes). */
   get progress(): number {
     if (this.cfg.level) return Math.min(1, this.d / this.cfg.level.length);
+    if (this.cfg.mayhem) return Math.min(1, this.d / this.cfg.mayhem.length);
     if (this.cfg.race) return Math.min(1, (this.d + this.raceBoost) / this.cfg.race.length);
     return 0;
   }
@@ -629,6 +641,13 @@ export class Simulation {
       const margin = Math.round(this.d + this.raceBoost - this.rivalD);
       this.score.addBonus('raceWin');
       this.events.push({ type: 'raceEnd', won: true, margin });
+      this.finish('completed');
+      return;
+    }
+    const mayhem = this.cfg.mayhem;
+    if (mayhem && this.d >= mayhem.length) {
+      const points = this.score.addBonus('mayhemWin');
+      this.events.push({ type: 'mayhemEnd', dodged: this.stats.fakePromisesDodged, points });
       this.finish('completed');
     }
   }
@@ -997,6 +1016,7 @@ export class Simulation {
       if (over === 'jump') this.stats.jumpsOver++;
       if (over === 'slide') this.stats.slidesUnder++;
       this.stats.dodges++;
+      if (this.isMayhem && cells.some((c) => c.kind && DROP_KINDS.has(c.kind))) this.stats.fakePromisesDodged++;
       const points = this.score.addDodge(over !== null);
       this.events.push({ type: 'dodge', over, points });
       if (this.state === 'RUNNING' && this.hasChases) {
@@ -1217,6 +1237,7 @@ export class Simulation {
       return { kind: 'chase', theme: this.theme, distance: s, diff: opening ? 0 : diff, vAt: v, maxRows: opening ? 2 : undefined };
     }
     const theme = this.themeAtS(s);
+    if (this.isMayhem) return { kind: 'mayhem', theme, distance: s, diff: Math.min(1, 0.2 + this.difficulty(s)), vAt: v };
     const enc = this.encounterAt(s);
     if (enc?.kind === 'redCap') return { kind: 'redCap', theme, distance: s, diff: this.difficulty(s), vAt: v };
     if (enc?.kind === 'promises') return { kind: 'promises', theme, distance: s, diff: this.difficulty(s), vAt: v };
@@ -1310,7 +1331,7 @@ export class Simulation {
   /** Turn coin specs into coins, development tokens or promise tokens. */
   private spawnCoins(specs: PickupSpec[], kind: ChunkKind, s: number): void {
     const enc = kind === 'promises' ? this.encounterAt(s, 'promises') : null;
-    const tokenRate = this.isCampaign ? 0.2 : this.isRace ? 0.25 : this.isRivalry ? 0 : 0.08;
+    const tokenRate = this.isCampaign ? 0.2 : this.isRace || this.isMayhem ? 0.25 : this.isRivalry ? 0 : 0.08;
     let k = 0;
     for (const spec of specs) {
       if (spec.kind === 'coin') {

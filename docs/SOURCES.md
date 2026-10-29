@@ -15,16 +15,16 @@ Sources were checked on **2026-10-29**. Some government pages could not be reach
 
 ## Ground rules followed
 
-- **No fabricated quotations.** All dialogue (Debate Arena, captions, rival lines) and all slogans were written for the game. They are labelled as fictional, and none is attributed to a real person as something they said.
+- **No fabricated quotations.** All dialogue (captions, rival lines) and all slogans were written for the game. They are labelled as fictional, and none is attributed to a real person as something they said.
 - **No accusations.** The game awards no points for accusations. "Gundaraj" appears only as a labelled campaign slogan on fictional signs. Criminals, corrupt officials and similar negative roles do not appear as real people; the only negative obstacles are fictional signs ("UNFINISHED PROJECT", "DELAYED").
 - **Credit where it is due.** Where a project began under an earlier (SP) government, the note says so: the Agra–Lucknow Expressway, the Purvanchal Expressway's 2015 announcement, and the Lucknow Metro's 2014 foundation stone. The game does not claim that every expressway, metro or airport was proposed or built entirely by BJP governments.
 - **Central vs. state.** PM-KISAN, Ujjwala and Jal Jeevan are central-government schemes. The notes say so; the game presents them as launched in or relevant to UP, not as state schemes.
 - **Proposals are not investment.** The ₹33.5 lakh crore UP GIS 2023 figure is labelled government-reported and described as MoUs/proposals.
 - **Game scores are fictional.** Points, stars, tokens and the scoreboard measure the player's run, not real governance. The UI repeats this wherever scores appear.
 
-## Satire content (`src/content/jokes.ts`, `debate.ts`)
+## Satire content (`src/content/jokes.ts`, `mayhem.ts`)
 
-News-ticker headlines, hero catchphrases, the rival caricature's one-liners and all Debate Arena dialogue are **fictional satire written for the game**. The UI labels every one of them: "UP RUN NEWS • satire, not real news", "fictional line", "game slogan". Jokes that mention a real-world number use only figures from the entries below (for example, the SP's 47 seats in 2017). None of these lines is a quote from a real person, and none accuses a real person of a crime.
+News-ticker headlines, hero catchphrases, the rival caricature's one-liners and the Manifesto Mayhem crate labels are **fictional satire written for the game**. The UI labels every one of them: "UP RUN NEWS • satire, not real news", "fictional line", "game slogan". Jokes that mention a real-world number use only figures from the entries below (for example, the SP's 47 seats in 2017). None of these lines is a quote from a real person, and none accuses a real person of a crime. The Mayhem crate promises ("FREE MOON TRIP", "EXPRESSWAY TO MARS"…) are invented exaggerations; they are not taken from any real manifesto, and the game says so on the mode screen and on every crate.
 
 ## Entries
 

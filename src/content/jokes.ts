@@ -17,7 +17,8 @@ export const NEWS_HEADLINES: readonly string[] = [
   'Pothole files for retirement after road gets resurfaced',
   'New airport opens; pigeons demand frequent-flyer miles',
   '“GUNDARAJ?” sign spotted looking for a new job',
-  'Debate audience requests subtitles for the word “vikas”',
+  'Rally audience requests subtitles for the word “vikas”',
+  'Cycle-copter grounded: manifesto too heavy to lift',
   'Cycle pump shortage reported ahead of rally',
   'Promises delivered: many. Promises pending: please hold',
   'Breaking: Scoreboard confirms the scoreboard is open',
@@ -49,6 +50,9 @@ export const RIVAL_LINES = {
   challengeWon: ['Dekha? Cycle bhi tez chalti hai!', 'Lal topi zindabad!'],
   raceWon: ['Pehle pahuncha! Ab ribbon kahaan hai?'],
   raceLost: ['Map galat tha! Expressway itna lamba kyun hai?', 'Main to sirf warm-up kar raha tha!'],
+  mayhemStart: ['Vaade hi vaade! Pakdo agar pakad sako!', 'Naya manifesto, naya jhola!'],
+  mayhemEmpty: ['Arre, manifesto khatam? Aur chhapwao!', 'Copter ka petrol bhi vaade mein tha…'],
+  mayhemWon: ['Dekha? Vaade bhaari padte hain!'],
 } as const;
 
 /** Comic burst words for stumbles and crashes. */

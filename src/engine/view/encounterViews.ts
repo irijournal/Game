@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { quizById } from '../../content/quiz';
 import { CHASER_LANE_X, LANE_X, ROAD_HALF_WIDTH } from '../../sim/constants';
+import { DROP_KINDS } from '../../sim/obstacles';
 import type { Simulation } from '../../sim/simulation';
 import type { CharacterId, Encounter } from '../../sim/types';
 import { buildCharacter, disposeRig } from './characterModels';
@@ -9,7 +10,7 @@ import type { Particles } from './effects';
 import { basic, box, cyl, lambert, mergeStatic, mesh, plane, sphere, toon, torus } from './materials';
 import { buildProp } from './scenery';
 import { blobShadow, bunting, drawSign, sign } from './textures';
-import { buildBulldozer, type Vehicle } from './vehicles';
+import { buildBulldozer, buildCycle, type Vehicle } from './vehicles';
 
 const GATE_COLORS: [string, string][] = [
   ['#ff8c1a', '#ffffff'],
@@ -20,6 +21,16 @@ const LETTERS = ['A', 'B', 'C'];
 const RIVAL_X = -CHASER_LANE_X;
 /** Metres before a level's finish where the Ribbon Race begins. */
 export const RIBBON_RACE = 160;
+
+/** Manifesto Mayhem: crates fall from DROP_FROM to the road at DROP_LAND (z, metres ahead). */
+const DROP_FROM = -82;
+const DROP_LAND = -44;
+const DROP_HEIGHT = 9;
+
+/** Height of a dropped crate above its landing spot (0 once landed). */
+export function dropHeight(z: number): number {
+  return Math.max(0, Math.min(1, (DROP_LAND - z) / (DROP_LAND - DROP_FROM))) * DROP_HEIGHT;
+}
 
 interface Gate {
   root: THREE.Group;
@@ -57,6 +68,16 @@ export class EncounterViews {
   private ribbonCut = 0;
   /** Giant scissors the rival brings to the Ribbon Race. */
   private scissors: THREE.Group;
+  /** Manifesto Mayhem: the rival's cycle-copter, its pilot and landing markers. */
+  private copter: THREE.Group;
+  private copterBike: Vehicle;
+  private rotor: THREE.Group;
+  private pilot: CharacterRig | null = null;
+  private pilotId: CharacterId | null = null;
+  private markers: THREE.Mesh[] = [];
+  private landed = new Set<number>();
+  private copterX = 0;
+  private copterExit = 0;
   /** Red Cap result beat: +1 overtaken (rival drops back), -1 rival pulls away. */
   private redCapExit = 0;
 
@@ -69,6 +90,16 @@ export class EncounterViews {
     this.runnerShadow.visible = false;
     this.group.add(this.runnerShadow);
     this.scissors = this.buildScissors();
+    this.copterBike = buildCycle();
+    this.rotor = new THREE.Group();
+    this.copter = this.buildCopter();
+    for (let i = 0; i < 8; i++) {
+      const m = mesh(new THREE.RingGeometry(0.55, 0.85, 20), basic(0xff3030, { transparent: true, opacity: 0.75, side: THREE.DoubleSide, key: 'dropMark' }), 0, 0.04, 0);
+      m.rotation.x = -Math.PI / 2;
+      m.visible = false;
+      this.group.add(m);
+      this.markers.push(m);
+    }
     this.helper = buildBulldozer();
     this.helper.root.visible = false;
     this.helper.root.scale.setScalar(0.85);
@@ -125,6 +156,29 @@ export class EncounterViews {
       this.crowds.push(c);
     }
     return merged;
+  }
+
+  private buildCopter(): THREE.Group {
+    // A campaign cycle with a helicopter rotor: comic, not a party symbol.
+    const g = new THREE.Group();
+    g.add(this.copterBike.root);
+    this.copterBike.root.scale.setScalar(0.6);
+    const mast = mesh(cyl(0.05, 0.05, 1.4, 6), toon(0x555555), 0, 2.3, 0.1);
+    g.add(mast);
+    this.rotor.position.set(0, 3.0, 0.1);
+    for (let i = 0; i < 2; i++) {
+      const blade = mesh(box(4.2, 0.05, 0.3), toon(0x30343c), 0, 0, 0);
+      blade.rotation.y = (i * Math.PI) / 2;
+      this.rotor.add(blade);
+    }
+    g.add(this.rotor);
+    const banner = mesh(plane(3.2, 0.7), lambert(0xffffff, { map: sign('MANIFESTO', { bg: '#d8202a', fg: '#ffffff', sub: 'fictional promises inside', subColor: '#fff3c4', w: 512, h: 112 }), side: THREE.DoubleSide }), 0, 0.2, 2.6);
+    g.add(banner);
+    g.add(mesh(box(1.4, 0.7, 0.9), toon(0xc9a06a), 0, 0.6, -0.9));
+    g.scale.setScalar(1.7);
+    g.visible = false;
+    this.group.add(g);
+    return g;
   }
 
   private buildScissors(): THREE.Group {
@@ -184,6 +238,15 @@ export class EncounterViews {
 
   /** The rival who races alongside (Development Race) or runs the Red Cap Challenge. */
   configure(rivalId: CharacterId, outfit: string): void {
+    if (this.pilotId !== rivalId) {
+      if (this.pilot) disposeRig(this.pilot);
+      this.pilot = buildCharacter(rivalId, { outfit });
+      this.pilotId = rivalId;
+      this.pilot.root.scale.setScalar(0.6);
+      this.pilot.root.position.copy(this.copterBike.seat).multiplyScalar(0.6);
+      this.pilot.root.position.y -= 0.45;
+      this.copter.add(this.pilot.root);
+    }
     if (this.runnerId === rivalId) return;
     if (this.runner) disposeRig(this.runner);
     this.runner = buildCharacter(rivalId, { outfit });
@@ -211,6 +274,10 @@ export class EncounterViews {
     this.ribbonCut = 0;
     this.ribbon.forEach((p) => p.rotation.set(0, 0, 0));
     this.scissors.visible = false;
+    this.copter.visible = false;
+    this.copterExit = 0;
+    this.landed.clear();
+    this.markers.forEach((m) => (m.visible = false));
   }
 
   update(dt: number, sim: Simulation, time: number, fx: Particles): void {
@@ -312,6 +379,8 @@ export class EncounterViews {
       }
     }
 
+    if (sim.isMayhem) this.updateMayhem(dt, sim, time, fx);
+
     // Helper bulldozer: drives ahead of the runner pushing debris aside.
     const target = sim.bulldozerT > 0 ? 1 : 0;
     this.helperAmt += Math.max(-dt * 1.5, Math.min(dt * 1.5, target - this.helperAmt));
@@ -322,6 +391,53 @@ export class EncounterViews {
       h.position.set(CHASER_LANE_X + (sim.player.x - CHASER_LANE_X) * k, 0, -9.5 - (1 - k) * 6);
       this.helper.update(dt, sim.speed, time);
       if (k > 0.5 && Math.random() < dt * 20) fx.dust({ x: h.position.x + (Math.random() - 0.5) * 2, y: 0.3, z: h.position.z - 2.6 }, 1);
+    }
+  }
+
+  /** Cycle-copter hovering ahead, dropping fictional-promise crates. */
+  private updateMayhem(dt: number, sim: Simulation, time: number, fx: Particles): void {
+    const c = this.copter;
+    c.visible = true;
+    // Steer over the next crate that is still in the air.
+    let target: number | null = null;
+    let best = Infinity;
+    let mi = 0;
+    for (const ob of sim.obstacles) {
+      if (!DROP_KINDS.has(ob.kind)) continue;
+      const z = -(ob.s - sim.d);
+      if (z < -110 || z > 30) continue;
+      const h = dropHeight(z);
+      if (h > 0) {
+        const dist = Math.abs(z + 70);
+        if (dist < best) {
+          best = dist;
+          target = LANE_X[ob.lane];
+        }
+        if (mi < this.markers.length) {
+          const m = this.markers[mi++];
+          m.visible = true;
+          m.position.set(LANE_X[ob.lane], 0.04, z - ob.depth / 2);
+          m.scale.setScalar(1.6 - (h / 9) * 0.8);
+        }
+      } else if (!this.landed.has(ob.id)) {
+        this.landed.add(ob.id);
+        if (z > -120) fx.dust({ x: LANE_X[ob.lane], y: 0.3, z }, 6, 0xd9cbb5);
+      }
+    }
+    for (; mi < this.markers.length; mi++) this.markers[mi].visible = false;
+    if (this.landed.size > 300) this.landed.clear();
+    const done = sim.state === 'GAME_OVER';
+    if (done) this.copterExit = Math.min(1, this.copterExit + dt * 0.4);
+    const tx = target ?? Math.sin(time * 0.6) * 2.5;
+    this.copterX += (tx - this.copterX) * Math.min(1, dt * 3);
+    // Hovers right where the crates leave it (DROP_FROM), big enough to read.
+    c.position.set(this.copterX, DROP_HEIGHT + 0.8 + Math.sin(time * 2.2) * 0.3 + this.copterExit * 14, DROP_FROM + 2 + this.copterExit * -40);
+    c.rotation.set(Math.sin(time * 1.7) * 0.05, Math.PI, (this.copterX - tx) * -0.08);
+    this.rotor.rotation.y += dt * (done ? 8 : 22);
+    this.copterBike.update(dt, 6, time);
+    if (this.pilot) {
+      this.pilot.setAnim(done && sim.summary?.completed ? 'stumble' : 'talk');
+      this.pilot.update(dt, 6);
     }
   }
 

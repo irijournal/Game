@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../../content/levels';
 import { QUIZ, quizById } from '../../content/quiz';
 import { Autopilot } from '../autopilot';
-import { CHALLENGE_WARNING, RACE_LENGTH, RACE_PACE, STUMBLE_TIME } from '../constants';
-import { OBSTACLES } from '../obstacles';
+import { CHALLENGE_WARNING, MAYHEM_LENGTH, RACE_LENGTH, RACE_PACE, STUMBLE_TIME } from '../constants';
+import { DROP_KINDS, OBSTACLES } from '../obstacles';
 import { hashString } from '../rng';
 import { Simulation, type SimConfig, type SimEvent } from '../simulation';
 import type { ThemeId } from '../types';
@@ -338,3 +338,47 @@ describe('Rivalry Mode (Governance Showdown)', () => {
     expect(cards).toBeGreaterThan(0);
   });
 });
+
+describe('Manifesto Mayhem', () => {
+  const mayhemCfg = (seed: number) =>
+    baseConfig({ mode: 'mayhem', character: 'yogi', rival: 'akhilesh', startTheme: 'lawandorder', seed, tutorial: false, mayhem: { length: MAYHEM_LENGTH } });
+
+  it('is completable through ordinary inputs and counts the promises dodged', () => {
+    let wins = 0;
+    for (const seed of [3, 4, 5]) {
+      const sim = new Simulation(mayhemCfg(seed));
+      const ev = run(sim, 200, new Autopilot());
+      expect(sim.state).toBe('GAME_OVER');
+      // No showdowns in this mode: stumbles only slow you down.
+      expect(sim.chase.count).toBe(0);
+      if (sim.summary?.completed) {
+        wins++;
+        expect(ev.some((e) => e.type === 'mayhemEnd')).toBe(true);
+        expect(sim.stats.fakePromisesDodged).toBeGreaterThan(20);
+        expect(sim.summary.breakdown.level).toBeGreaterThan(0);
+      }
+    }
+    expect(wins).toBeGreaterThanOrEqual(2);
+  });
+
+  it('drops mostly fictional-promise crates and keeps the finish clear', () => {
+    const sim = new Simulation(mayhemCfg(9));
+    const kinds = new Map<number, string>();
+    let maxS = 0;
+    const bot = new Autopilot();
+    for (let t = 0; t < 200 && sim.state !== 'GAME_OVER'; t += 1 / 60) {
+      for (const a of bot.decide(sim)) sim.input(a);
+      sim.advance(1 / 60);
+      sim.events.length = 0;
+      for (const o of sim.obstacles) {
+        kinds.set(o.id, o.kind);
+        maxS = Math.max(maxS, o.s + o.depth);
+      }
+    }
+    const all = [...kinds.values()];
+    const dropped = all.filter((k) => DROP_KINDS.has(k as never)).length;
+    expect(dropped / all.length).toBeGreaterThan(0.7);
+    expect(maxS).toBeLessThan(MAYHEM_LENGTH - 30);
+  });
+});
+

@@ -24,6 +24,7 @@ export const POINTS = {
   levelComplete: 500,
   perStar: 250,
   raceWin: 750,
+  mayhemWin: 600,
 } as const;
 
 export type BonusKind =
@@ -39,7 +40,8 @@ export type BonusKind =
   | 'promise'
   | 'roadCleared'
   | 'level'
-  | 'raceWin';
+  | 'raceWin'
+  | 'mayhemWin';
 
 export interface ScoreBreakdown {
   distance: number;
@@ -66,6 +68,7 @@ const DEFAULTS: Partial<Record<BonusKind, number>> = {
   promise: POINTS.promise,
   roadCleared: POINTS.roadCleared,
   raceWin: POINTS.raceWin,
+  mayhemWin: POINTS.mayhemWin,
 };
 
 const BUCKET: Record<BonusKind, keyof Omit<ScoreBreakdown, 'total' | 'distance' | 'coins' | 'dodges'>> = {
@@ -81,6 +84,7 @@ const BUCKET: Record<BonusKind, keyof Omit<ScoreBreakdown, 'total' | 'distance' 
   promisesDelivered: 'rival',
   promise: 'rival',
   raceWin: 'rival',
+  mayhemWin: 'level',
   level: 'level',
 };
 

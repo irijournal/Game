@@ -4,10 +4,9 @@ import type { UiEvent } from '../engine/events';
 import type { LevelId } from '../content/levels';
 import type { CharacterId } from '../sim/types';
 import { BoardScreen } from './Board';
-import { DebateScreen } from './Debate';
 import { GameOverlay } from './GameOverlay';
 import { saveStore, updateSave, useSave } from './store';
-import { CampaignScreen, CharacterScreen, heroFor, LevelIntroScreen, MenuScreen, MissionsScreen, ModeScreen, nextLevel, ScoresScreen, SettingsScreen, ShopScreen, TitleScreen } from './Screens';
+import { CampaignScreen, CharacterScreen, heroFor, LevelIntroScreen, MayhemScreen, MenuScreen, MissionsScreen, ModeScreen, nextLevel, ScoresScreen, SettingsScreen, ShopScreen, TitleScreen } from './Screens';
 
 export type Screen =
   | 'boot'
@@ -17,7 +16,7 @@ export type Screen =
   | 'campaign'
   | 'level'
   | 'modes'
-  | 'debate'
+  | 'mayhem'
   | 'board'
   | 'characters'
   | 'missions'
@@ -28,7 +27,7 @@ export type Screen =
   | 'error';
 
 /** Screens shown over the idling character on the street. */
-const SHOWCASE: readonly Screen[] = ['menu', 'campaign', 'level', 'characters', 'modes', 'board', 'missions', 'shop', 'scores', 'settings'];
+const SHOWCASE: readonly Screen[] = ['menu', 'campaign', 'level', 'characters', 'modes', 'mayhem', 'board', 'missions', 'shop', 'scores', 'settings'];
 
 const store = saveStore();
 
@@ -174,7 +173,7 @@ export function App() {
       )}
       {screen === 'level' && <LevelIntroScreen go={go} level={level} start={start} />}
       {screen === 'modes' && <ModeScreen go={go} start={start} />}
-      {screen === 'debate' && engine && <DebateScreen engine={engine} go={go} />}
+      {screen === 'mayhem' && <MayhemScreen go={go} start={start} />}
       {screen === 'board' && <BoardScreen go={go} />}
       {screen === 'characters' && engine && (
         <CharacterScreen go={go} preview={(id: CharacterId) => engine.showShowcase(id)} />

@@ -67,3 +67,6 @@ export const SPEED_RUN_WARNING = 2.5;
 /** Development Race: course length (m) and the rival's pace as a fraction of base speed. */
 export const RACE_LENGTH = 1500;
 export const RACE_PACE = 1.03;
+
+/** Manifesto Mayhem: metres until the rival's manifesto runs empty. */
+export const MAYHEM_LENGTH = 1200;

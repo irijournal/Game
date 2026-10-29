@@ -89,9 +89,11 @@ The hero races the rival over 1,500 m on parallel lanes. Development tokens each
 
 An endless run with any unlocked character. Environments rotate every 750 m, with Accountability Gates, rival challenges and power-ups along the way. Playing as the hero, the rival arrives on a giant campaign cycle instead of the bulldozer.
 
-### Debate Arena
+### Manifesto Mayhem
 
-Five rounds of comic dialogue between the two caricatures. The rival says a campaign line, you choose a reply and the audience reacts. Score 10 of 15 to win. Every line is labelled fictional.
+The rival caricature flies a campaign **cycle-copter** above the road and drops gift-wrapped crates of absurd, invented promises: "FREE MOON TRIP", "SEA BEACH IN LUCKNOW", "METRO TO EVERY VILLAGE BY TUESDAY", "EXPRESSWAY TO MARS". The crates parachute down, and a red ring marks where each will land. Dodge them for 1,200 m and collect real development tokens until the manifesto runs empty. Every promise is labelled a fictional exaggeration, not taken from any real manifesto.
+
+The crates land on spots the normal generator has already checked are passable, so the falling is purely visual and the course stays fair.
 
 ## Satire layer
 
@@ -105,7 +107,6 @@ All of this is labelled fictional satire in the game:
   - an **"ALLIANCE PARKING"** heap of cycles.
 - **UP RUN News.** Satire headlines appear as flashes during runs and in a ticker on the menu. Examples: "Family meeting on seat-sharing enters day 3,000", "Laptop from 2012 still buffering".
 - **One-liners.** The hero's catchphrases include "Kaam sirf bolta nahi — dikhta hai!" and "Rasta saaf, vikas aage!". The rival has comic comebacks after Red Cap Challenges and races.
-- **Debate Arena.** 14 rounds cover the family business, Kaam Bolta Hai, laptops, the cycle, alliances, credit and more. Each debate plays 5 random rounds with the replies shuffled.
 - **Quiz and missions.** The quiz bank covers SP's 2017 slogan, the 2017 and 2022 results, the 2017 cycle-symbol ruling, the laptop scheme, ODOP and the Maha Kumbh, all from `docs/SOURCES.md`. Missions include "Deliver 12 promises (unlike some manifestos)".
 
 ## Rival encounters and power-ups
@@ -120,15 +121,15 @@ All of this is labelled fictional satire in the game:
 
 ## Scoreboard and achievements
 
-The **Scoreboard** ("Performance is the real scoreboard") shows personal bests per mode and the longest run. It also tracks levels and stars, development tokens, missions, obstacles avoided, debris cleared, promises delivered, Red Cap Challenges won, Accountability Gates passed, debates won, races won and the best Rivalry stage. Every score screen says that game points are fictional.
+The **Scoreboard** ("Performance is the real scoreboard") shows personal bests per mode and the longest run. It also tracks levels and stars, development tokens, missions, obstacles avoided, debris cleared, promises delivered, Red Cap Challenges won, Accountability Gates passed, races won, Manifesto Mayhem wins, fictional promises dodged and the best Rivalry stage. Every score screen says that game points are fictional.
 
-**Achievements & Facts** has four tabs: 12 achievements, the 8 level badges, the **Evidence board** (all real-world information, filterable by type, with sources and the check date) and the game's own slogans (labelled as political claims, not quotes).
+**Achievements & Facts** has four tabs: 13 achievements, the 8 level badges, the **Evidence board** (all real-world information, filterable by type, with sources and the check date) and the game's own slogans (labelled as political claims, not quotes).
 
 ## Architecture
 
 ```
 src/
-  content/    facts (sourced, typed), levels, quiz, debate script, slogans, achievements
+  content/    facts (sourced, typed), levels, quiz, fictional promises, jokes, slogans, achievements
   sim/        Pure TypeScript game logic, no rendering (unit-tested in Node)
     simulation.ts   state machine, modes, levels, encounters, scoring, spawning
     player.ts       lanes / jump / slide physics (fixed 120 Hz steps)
@@ -139,8 +140,8 @@ src/
   engine/       Three.js renderer, the single RAF loop, input, audio, camera
     view/         characters, vehicles, obstacles, 8 environments, crowds,
                   encounter visuals (finish arch, gates, rival runner,
-                  helper bulldozer), debate stage, cinematics, effects
-  ui/           React screens, HUD, debate overlay, evidence board
+                  helper bulldozer, cycle-copter), cinematics, effects
+  ui/           React screens, HUD, evidence board
 tests/e2e/      browser acceptance tests (Playwright, production build)
 docs/           STATUS.md, BUG_REGISTER.md, SOURCES.md
 ```
@@ -151,7 +152,7 @@ Key decisions:
 - **One game loop.** The engine owns exactly one `requestAnimationFrame`. Restarting replaces the simulation, never the loop.
 - **Every state has an exit.** RUNNING → EVENT_PENDING → STUMBLE → CINEMATIC → CHASE → SUCCESS / FAILURE → GAME_OVER. Each has a timeout, and the cinematic is skippable with a fixed maximum length.
 - **Fair generator.** A chunk of obstacles is accepted only if a route exists from *every* starting lane. Quiz gates, power-up drops and the finish line reserve obstacle-free stretches. Levels use fixed courses, so 3 stars are learnable; other modes vary.
-- **Content as data.** Facts, levels, quiz questions, debate lines and slogans live in `src/content/` and can be edited without touching the game code. Each fact keeps its type, sources, dates and caveats.
+- **Content as data.** Facts, levels, quiz questions, fictional promises, jokes and slogans live in `src/content/` and can be edited without touching the game code. Each fact keeps its type, sources, dates and caveats.
 - **No external assets.** Everything is built in code: characters, vehicles, scenery and crowds from primitives (merged and instanced), text from canvas textures, music and sound effects from WebAudio synthesis. Fonts are bundled.
 
 ## Tests
@@ -160,7 +161,7 @@ Key decisions:
 npm run typecheck
 npm test             # 110 unit + integration tests (~3 min; one physics cross-check is slow)
 npm run build && npm run e2e   # 18 browser scenarios against the production build
-E2E_ONLY="Rivalry|Debate" npm run e2e   # run a subset by name
+E2E_ONLY="Rivalry|Mayhem" npm run e2e   # run a subset by name
 ```
 
 The unit tests cover:
@@ -180,7 +181,7 @@ The browser scenarios cover:
 - Intro → Level 1, keyboard (arrows / A D / Space / W / S / Esc), and phone swipes plus touch buttons.
 - **All 8 levels finished to their reward screens**, and an Accountability Gate answered with its fact card.
 - The full Rivalry sequence escaped, and a showdown lost then retried.
-- The bulldozer power-up, the Development Race, Free Run with the cycle, and the Debate Arena (won and lost).
+- The bulldozer power-up, the Development Race, Free Run with the cycle, and Manifesto Mayhem (crates falling, manifesto emptied).
 - Every menu button, the evidence-board filter and source links.
 - Save persistence and corrupt-save recovery, rotation, background-tab pause, and the no-WebGL screen.
 - Audio, and a 15-game-minute soak. Every scenario also fails on any console or page error.

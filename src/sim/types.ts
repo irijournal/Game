@@ -17,6 +17,7 @@ export type ObstacleKind =
   | 'droneCrate'
   | 'laptopPile'
   | 'cycleHeap'
+  | 'promiseCrate'
   // gaps (jump or change lane)
   | 'pothole'
   | 'roadGap'
@@ -46,7 +47,8 @@ export type ObstacleKind =
   | 'forklift'
   | 'maglevPod'
   | 'familyMeeting'
-  | 'kaamPoster';
+  | 'kaamPoster'
+  | 'promiseStack';
 
 /** Development tokens look different in every environment. */
 export type TokenVariant = 'road' | 'diya' | 'plane' | 'wheat' | 'welfare' | 'shield' | 'gear' | 'star';
@@ -64,8 +66,10 @@ export type CharacterId = 'yogi' | 'akhilesh' | 'karyakarta';
  * rivalry:  play as the rival; stages end in a Governance Showdown chase
  * race:     Development Race against the rival on a parallel route
  * free:     endless free run with any unlocked character
+ * mayhem:   Manifesto Mayhem — dodge fictional promises dropped from the
+ *           rival's cycle-copter until the manifesto runs empty
  */
-export type ModeId = 'campaign' | 'rivalry' | 'race' | 'free';
+export type ModeId = 'campaign' | 'rivalry' | 'race' | 'free' | 'mayhem';
 
 export interface Obstacle {
   id: number;
