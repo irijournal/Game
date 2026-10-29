@@ -6,6 +6,8 @@ You run as a **Yogi Adityanath-inspired hero** (saffron robes, dramatic entrance
 
 > **Disclaimer.** UP RUN is fan-made political satire. It is **not an official app** and is not affiliated with or endorsed by the BJP, the Samajwadi Party, the Government of Uttar Pradesh or any politician. Characters are cartoon caricatures, and negative roles go only to fictional characters. All dialogue and slogans were written for the game, so there are no real quotes. **Game scores are fictional.** Real-world information is labelled as a *verified fact*, a *government-reported figure* or a *political claim*, with sources (see [`docs/SOURCES.md`](docs/SOURCES.md)). The bulldozer is a game symbol: it never touches a person, never demolishes a home, and only pushes unoccupied debris off the road.
 
+**▶ Play online: https://irijournal.github.io/Game/** (works on phones and laptops)
+
 ---
 
 ## Quick start
@@ -26,6 +28,16 @@ To build a single self-contained HTML file that opens straight from disk with no
 
 ```bash
 npm run build:single # → dist-single/index.html
+```
+
+The live site is served by GitHub Pages from the `gh-pages` branch, which holds only the contents of `dist/`. To publish a new version:
+
+```bash
+npm run build
+git worktree add /tmp/ghp gh-pages        # check out the published files
+rm -rf /tmp/ghp/assets && cp -r dist/. /tmp/ghp/ && touch /tmp/ghp/.nojekyll
+cd /tmp/ghp && git add -A && git commit -m "Publish new build" && git push
+cd - && git worktree remove /tmp/ghp
 ```
 
 Host `dist/` on any static web server: GitHub Pages, Netlify, S3, or `npx serve dist`. There is no backend, no API key, no analytics and no tracking. Progress is saved only in the browser's `localStorage`.
