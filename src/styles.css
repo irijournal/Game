@@ -1885,3 +1885,22 @@ kbd {
 .small-print {
   font-size: 12px;
 }
+
+.gundaraj-def {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.evidence-summary {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 2px solid #1f8a4c;
+  border-radius: 12px;
+  background: #f1fbf3;
+  text-align: left;
+  font-size: 13px;
+}
+.evidence-summary small {
+  color: var(--muted);
+}

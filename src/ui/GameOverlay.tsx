@@ -529,6 +529,20 @@ function GameOver({
           </div>
         )}
         {info.giftCoins > 0 && <div className="msg">🏠 Public Service bonus: +₹{info.giftCoins}</div>}
+        {level && s.level?.completed && (
+          <div className="evidence-summary">
+            <b>Real-world context for this level</b>
+            {level.facts
+              .map((id) => factById(id))
+              .filter((f): f is NonNullable<typeof f> => !!f)
+              .map((f) => (
+                <div key={f.id}>
+                  <FactTypeBadge type={f.type} /> {f.title}
+                </div>
+              ))}
+            <small>Sources and dates: Achievements &amp; Facts → Evidence board.</small>
+          </div>
+        )}
         <div className="stats compact">
           {level && s.level && (
             <div>

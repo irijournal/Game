@@ -156,6 +156,9 @@ export function TitleScreen({ onStart, onMenu }: { onStart: () => void; onMenu: 
           </li>
           <li>Collect development tokens, reach the finish line and earn up to 3 stars per level.</li>
         </ul>
+        <p className="gundaraj-def">
+          <b>“Gundaraj”</b> is a campaign word for lawlessness and intimidation. In this game it is a political claim and a set of fictional obstacles you leave behind — not a statement about any real person.
+        </p>
       </div>
       <div className="title-actions">
         <button className="btn primary huge" onClick={onStart} autoFocus>

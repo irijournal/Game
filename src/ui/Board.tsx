@@ -107,6 +107,9 @@ export function BoardScreen({ go }: { go: (s: Screen) => void }) {
                   <FactTypeBadge type={t} /> <small>{FACT_TYPE_HELP[t]}</small>
                 </div>
               ))}
+              <small>
+                <b>Who is who:</b> the BJP and the SP are political parties; the Government of Uttar Pradesh runs state schemes and the police; the Government of India runs central schemes (PM-KISAN, Ujjwala, Jal Jeevan); courts decide cases. Each fact says which one it is about.
+              </small>
               <small className="muted">
                 Sources checked on {CHECKED}. Where a project began under an earlier government, the note says so. No points are ever awarded for accusations.
               </small>
