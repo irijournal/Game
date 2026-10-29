@@ -1,0 +1,28 @@
+# Bug register
+
+Bugs found while building and testing UP RUN — Political Rivalry Mode. Severity: Critical / High / Medium / Low.
+
+| ID | Feature | Steps to reproduce | Expected | Actual | Sev. | Root cause | Fix | Regression test | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| BUG-001 | Jump physics | Jump from the ground; measure peak height | Peak = v²/2g ≈ 2.17 m at any frame rate | Peak 2.11 m; varied with step size | Medium | Semi-implicit Euler integration under-shoots the parabola | Exact ballistic step `y += v·dt − ½g·dt²` | `player.test.ts` "jumps with the designed peak and airtime"; frame-rate test | Verified |
+| BUG-002 | Character look | View Akhilesh from behind (the gameplay camera) | Red cap clearly visible | Cap sunk into the hair; almost invisible | High | Cap too small and too low relative to the hair shell | Cap scaled ×1.75 wide and raised; hair shell shrunk | Rig preview screenshots (`dev/preview.html`) | Verified (visual) |
+| BUG-003 | Rival entrance | Trigger the full entrance; look at t ≈ 0.6 s | Yogi framed by a saffron burst | Burst filled the whole screen and hid Yogi | High | Burst plane 7 m wide, placed between camera and stage | Scaled to ~3.7 m and pushed behind the rival along the camera ray | `dev/capture.cjs` screenshots | Verified (visual) |
+| BUG-004 | Game-over camera | Crash into a bus/van, wait for results | Runner visible sitting down | Camera inside the obstacle; runner not visible | High | Orbit camera placed directly in front of the runner, i.e. inside the obstacle just hit | High three-quarter camera beside the runner, above the tallest obstacle (4.6 m) and outside the crashed lane | e2e "chase failure → results" screenshot | Verified |
+| BUG-005 | Chase readability | Start a chase in landscape | Bulldozer visibly behind the runner on its own lane | Blade level with the runner; chaser half out of frame | High | Chaser too far forward; camera not pulled back enough | Chaser moved back (z 4.3) and scaled 0.82; chase camera pulled back and shifted toward the shoulder | e2e asserts the chaser is on the shoulder (x > 3.5) and behind (z > 1) | Verified |
+| BUG-006 | Performance | Run in Lucknow Streets; read `renderer.info.render.calls` | A few hundred draw calls at most | ~500–620 | High | Every prop built from many primitives; buildings used 6 material groups | Static meshes merged per material; street props instanced; buildings 2 groups; skyline merged; characters merged per joint | Draw calls now ~180–330 (logged by e2e) | Verified |
+| BUG-007 | Memory | Long session (15 game-minutes) | GPU geometry count plateaus | Kept growing (+130 in 13 min) | High | Each pooled obstacle view owned its own merged geometry; pools grow with peak concurrency | Pooled views clone a per-kind template, sharing geometry/materials; owned geometry disposed when rigs/vehicles are swapped | e2e soak: geometries plateau at 213 from minute 6 | Verified |
+| BUG-008 | Environments | Choose "Heritage" as start route; start a run | Heritage buildings from the first metre | Buildings near the start kept the previous route's skins | Medium | Street blocks stay skinned until they scroll out of view | `World.resetBlocks()` on every run start and menu | `dev/tour.cjs` screenshots | Verified (visual) |
+| BUG-009 | Stumble | Hit an obstacle with the guard ready | Obstacle tumbles away comically | Obstacle vanished in a poof (pooled immediately) | Low | Stumble clear-ahead also cleared the obstacle that was hit | Knocked-away obstacles are excluded from clearing | `simulation.test.ts` stumble path | Verified |
+| BUG-010 | Character select (phone) | Open Select Character at 390×844 | 3D character visible above the card | Card covered the character | Medium | Same camera framing in portrait and landscape | Portrait showcase camera frames the character in the upper half | Mobile walkthrough screenshots | Verified (visual) |
+| BUG-011 | Captions | Full entrance at a low frame rate | One headline at a time | Two headlines could overlap | Low | Captions stacked; durations in wall-clock time | A new caption replaces the previous one | Visual | Verified (visual) |
+| BUG-012 | Opening sequence | Watch the intro's aerial shot | City readable from above | Washed out by fog | Low | Gameplay fog distance (200 m) applied to a 70 m-high camera | Fog far distance extended during the aerial shot | Mobile walkthrough screenshot | Verified (visual) |
+| BUG-013 | Input | Click ❚❚ then Resume with the mouse; press Space | Jump | Could re-activate the focused HUD button | Medium | Focused `<button>` reacts to Space | Focus cleared on resume/run start; game keys blur a focused button | e2e keyboard scenario | Verified |
+| BUG-014 | Touch targets | Inspect small buttons/chips on a phone | ≥ 44 × 44 px | 36–40 px | Low | CSS min-heights | Raised to 44 px | e2e checks pause button ≥ 44 px | Verified |
+
+## Open issues / watch list
+
+| ID | Area | Notes | Sev. |
+|---|---|---|---|
+| WATCH-1 | Real devices | No physical iOS/Android/Safari/Firefox testing yet (see `STATUS.md`). | High |
+| WATCH-2 | Audio | Synthesised audio not listened to by a human; volumes may need balancing. | Low |
+| WATCH-3 | Object pool shells | Pool shells (not GPU memory) grow slowly with peak obstacle concurrency (≈ 75 after 21 km). Bounded by the visible-window obstacle cap. | Low |

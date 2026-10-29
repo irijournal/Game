@@ -1,0 +1,40 @@
+import * as THREE from 'three';
+import { buildCharacter } from '../src/engine/view/characterModels';
+import type { AnimName } from '../src/engine/view/characterRig';
+import type { CharacterId } from '../src/sim/types';
+
+const params = new URLSearchParams(location.search);
+const anim = (params.get('anim') ?? 'idle') as AnimName;
+const view = params.get('view') ?? 'front';
+const t = parseFloat(params.get('t') ?? '1.2');
+const outfit = params.get('outfit');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9cc8e8);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x777766, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(3, 6, 4);
+scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshLambertMaterial({ color: 0x777777 }));
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+const ids: CharacterId[] = ['akhilesh', 'yogi', 'ummeedwar'];
+const rigs = ids.map((id, i) => {
+  const r = buildCharacter(id, { outfit: outfit ? `${id}.${outfit}` : `${id}.classic` });
+  r.root.position.x = (i - 1) * 1.4;
+  if (view === 'front') r.root.rotation.y = Math.PI;
+  if (view === 'side') r.root.rotation.y = -Math.PI / 2;
+  if (view === 'threequarter') r.root.rotation.y = Math.PI * 0.75;
+  r.setAnim(anim, true);
+  scene.add(r.root);
+  return r;
+});
+for (let k = 0; k < Math.round(t * 60); k++) rigs.forEach((r) => r.update(1 / 60, 14));
+cam.position.set(0, 1.4, 6.2);
+cam.lookAt(0, 0.95, 0);
+renderer.render(scene, cam);
+(window as unknown as { __done: boolean }).__done = true;
