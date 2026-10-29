@@ -8,6 +8,12 @@ You run as a **Yogi Adityanath-inspired hero** (saffron robes, dramatic entrance
 
 **▶ Play online: https://irijournal.github.io/Game/** (works on phones and laptops)
 
+| Start | Gameplay | Level complete |
+|---|---|---|
+| ![Main menu](docs/screenshots/1-start-menu.png) | ![Gameplay with the bulldozer power-up](docs/screenshots/2-gameplay.png) | ![Reward screen with real-world context](docs/screenshots/3-level-complete.png) |
+
+Every push to the main branch rebuilds the game and republishes the site (`.github/workflows/deploy-pages.yml`).
+
 ---
 
 ## Quick start
