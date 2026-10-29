@@ -1754,3 +1754,110 @@ kbd {
     min-height: 56px;
   }
 }
+
+/* ===================================================== refinement: satire */
+
+.toast.news {
+  background: #10141c;
+  border-color: #ffd23a;
+}
+.toast.news b {
+  color: #fff;
+}
+.toast.news span {
+  color: #ffd23a;
+}
+.toast.rival {
+  background: #ffe1e1;
+  border-color: #d8202a;
+}
+.toast.hero {
+  background: #ffe8c8;
+  border-color: #ff8c1a;
+}
+.bubble.heckle {
+  font-size: 14px;
+  opacity: 0.92;
+}
+
+.ticker {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: #10141c;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+.ticker-tag {
+  flex: none;
+  padding: 4px 10px;
+  background: #d8202a;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.ticker-window {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.ticker-track {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: ticker 70s linear infinite;
+}
+@keyframes ticker {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+    padding-left: 8px;
+  }
+}
+
+/* Compact HUD on narrow phones: keep the road visible. */
+@media (max-width: 480px) {
+  .score {
+    font-size: 30px;
+  }
+  .dist {
+    font-size: 12px;
+  }
+  .progress-box,
+  .meter {
+    width: 150px;
+    padding: 3px 6px 4px;
+  }
+  .meter-label {
+    font-size: 10px;
+  }
+  .progress-box .tokens {
+    font-size: 12px;
+  }
+  .guard {
+    font-size: 11px;
+  }
+  .ticker {
+    font-size: 12px;
+  }
+}
+
+/* Wide screens: toasts sit in a column on the right, clear of the captions. */
+@media (min-width: 900px) {
+  .toasts {
+    left: auto;
+    right: 12px;
+    top: calc(150px + var(--safe-top));
+    transform: none;
+    width: 360px;
+  }
+}

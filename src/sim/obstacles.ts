@@ -75,6 +75,8 @@ export const OBSTACLES: Record<ObstacleKind, ObstacleDef> = {
   delaySign: low(0.6, 1.0, 0.9, 0, '“DELAYED” sign'),
   pallet: low(1.0, 0.95, 0.9, 0, 'Loaded pallet'),
   droneCrate: low(0.8, 1.0, 0.85, 0, 'Delivery-drone crate', false),
+  laptopPile: low(0.9, 0.95, 0.9, 0, '“Free laptop 2012” pile'),
+  cycleHeap: low(1.0, 1.0, 0.95, 0, '“Alliance parking” cycle heap', false),
 
   pothole: gap(1.8, 0.85, 220, 'Pothole'),
   roadGap: gap(3.0, 1.0, 400, 'Work-zone gap'),
@@ -103,6 +105,8 @@ export const OBSTACLES: Record<ObstacleKind, ObstacleDef> = {
   unfinishedSign: wall(0.6, 2.8, 0.95, 0, '“UNFINISHED PROJECT” board'),
   forklift: wall(2.6, 2.8, 0.95, 100, 'Forklift'),
   maglevPod: wall(5.0, 2.8, 1.0, 150, 'Maglev pod'),
+  familyMeeting: wall(1.6, 2.8, 0.98, 0, '“Parivaar meeting” sofa'),
+  kaamPoster: wall(0.6, 2.8, 0.95, 0, '“Kaam bolta hai?” board'),
 };
 
 type KindWeights = Partial<Record<ObstacleKind, number>>;
@@ -136,15 +140,15 @@ export const THEME_OBSTACLES: Record<WeightKey, ClassWeights> = {
     gap: { canalGap: 3 },
   },
   jankalyan: {
-    low: { queueBarrier: 3, fileStack: 2, delaySign: 1 },
+    low: { queueBarrier: 3, fileStack: 2, delaySign: 1, laptopPile: 2 },
     high: { bannerArch: 3 },
     wall: { fileMountain: 2, unfinishedSign: 1, mediaVan: 1, bus: 1 },
     gap: { openDrain: 3, pothole: 1 },
   },
   lawandorder: {
-    low: { aframeSign: 3, barricade: 3 },
+    low: { aframeSign: 3, barricade: 3, cycleHeap: 2 },
     high: { boomBarrier: 3, bannerArch: 1 },
-    wall: { gundarajBoard: 3, mediaVan: 2, bus: 1, truck: 1 },
+    wall: { gundarajBoard: 3, familyMeeting: 2, kaamPoster: 1, mediaVan: 2, bus: 1, truck: 1 },
     gap: { pothole: 2 },
   },
   startup: {
@@ -160,15 +164,15 @@ export const THEME_OBSTACLES: Record<WeightKey, ClassWeights> = {
     gap: { roadGap: 1 },
   },
   redCap: {
-    low: { barricade: 2, aframeSign: 2, fileStack: 1 },
+    low: { cycleHeap: 3, laptopPile: 2, aframeSign: 1 },
     high: { bannerArch: 2, boomBarrier: 1 },
-    wall: { gundarajBoard: 2, constructionWall: 1, unfinishedSign: 1 },
+    wall: { familyMeeting: 3, kaamPoster: 2, gundarajBoard: 1 },
     gap: { pothole: 1 },
   },
   promises: {
-    low: { fileStack: 3, delaySign: 3 },
+    low: { fileStack: 3, delaySign: 3, laptopPile: 2 },
     high: { bannerArch: 1 },
-    wall: { unfinishedSign: 3, fileMountain: 2 },
+    wall: { unfinishedSign: 3, kaamPoster: 2, fileMountain: 2 },
     gap: { pothole: 1 },
   },
   development: {
@@ -186,4 +190,4 @@ export const THEME_OBSTACLES: Record<WeightKey, ClassWeights> = {
 };
 
 /** Kinds the bulldozer power-up drops ahead to push aside. */
-export const DEBRIS_KINDS: readonly ObstacleKind[] = ['cones', 'barricade', 'fileStack', 'pothole', 'delaySign'];
+export const DEBRIS_KINDS: readonly ObstacleKind[] = ['cones', 'barricade', 'fileStack', 'pothole', 'delaySign', 'laptopPile'];

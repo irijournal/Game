@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { factById, FACT_TYPE_LABEL, type Fact } from '../content/facts';
 import { LEVELS, levelById, type LevelDef, type LevelId } from '../content/levels';
+import { NEWS_HEADLINES } from '../content/jokes';
 import { GAME_SUBTITLE, GAME_TITLE, TAGLINE } from '../content/slogans';
 import type { StartOptions } from '../engine/Engine';
 import { activeMissions, levelUnlocked, priceOf, purchase, routeUnlocked, totalStars, type SaveData } from '../save/save';
@@ -105,6 +106,23 @@ export function FactCard({ fact, open = false }: { fact: Fact; open?: boolean })
   );
 }
 
+/** Scrolling satire headlines for the menu (clearly labelled as not news). */
+function NewsTicker() {
+  const [items] = useState(() => [...NEWS_HEADLINES].sort(() => Math.random() - 0.5).slice(0, 8));
+  return (
+    <div className="ticker" aria-label="Satire headlines (not real news)">
+      <span className="ticker-tag">UP RUN NEWS • SATIRE</span>
+      <div className="ticker-window">
+        <div className="ticker-track">
+          {[...items, ...items].map((h, i) => (
+            <span key={i}>{h} ✦ </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Brand({ small = false }: { small?: boolean }) {
   return (
     <div className={`brand ${small ? 'small' : ''}`}>
@@ -196,6 +214,7 @@ export function MenuScreen({ go }: { go: Go }) {
           </button>
         </div>
       </div>
+      <NewsTicker />
       <p className="disclaimer">{SHORT_DISCLAIMER}</p>
     </div>
   );

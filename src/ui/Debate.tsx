@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { DEBATE_ROUNDS, DEBATE_WIN_SCORE } from '../content/debate';
+import { DEBATE_WIN_SCORE, pickDebate } from '../content/debate';
 import { ACHIEVEMENTS } from '../content/achievements';
 import type { Engine } from '../engine/Engine';
 import { applyDebate } from '../save/save';
@@ -28,8 +28,10 @@ export function DebateScreen({ engine, go }: { engine: Engine; go: (s: Screen) =
   const timer = useRef<number | null>(null);
   /** Each finished debate is recorded exactly once. */
   const recorded = useRef(false);
-  const max = DEBATE_ROUNDS.length * 3;
-  const r = DEBATE_ROUNDS[Math.min(round, DEBATE_ROUNDS.length - 1)];
+  // A fresh debate each time: random rounds, replies in shuffled order.
+  const [rounds, setRounds] = useState(() => pickDebate());
+  const max = rounds.length * 3;
+  const r = rounds[Math.min(round, rounds.length - 1)];
   const won = score >= DEBATE_WIN_SCORE;
 
   const later = (fn: () => void, ms = LINE_MS) => {
@@ -53,7 +55,7 @@ export function DebateScreen({ engine, go }: { engine: Engine; go: (s: Screen) =
     else if (phase === 'reply') {
       engine.debateSpeaker('hero');
       later(() => {
-        if (round + 1 < DEBATE_ROUNDS.length) {
+        if (round + 1 < rounds.length) {
           setRound(round + 1);
           setPick(null);
           setPhase('rival');
@@ -87,7 +89,7 @@ export function DebateScreen({ engine, go }: { engine: Engine; go: (s: Screen) =
     if (timer.current) window.clearTimeout(timer.current);
     if (phase === 'rival') setPhase('choose');
     else if (phase === 'reply') {
-      if (round + 1 < DEBATE_ROUNDS.length) {
+      if (round + 1 < rounds.length) {
         setRound(round + 1);
         setPick(null);
         setPhase('rival');
@@ -96,6 +98,7 @@ export function DebateScreen({ engine, go }: { engine: Engine; go: (s: Screen) =
   };
 
   const restart = () => {
+    setRounds(pickDebate());
     setRound(0);
     setScore(0);
     setPick(null);
@@ -127,7 +130,7 @@ export function DebateScreen({ engine, go }: { engine: Engine; go: (s: Screen) =
       {phase !== 'done' && (
         <div className="debate-panel">
           <div className="round-tag">
-            Round {round + 1}/{DEBATE_ROUNDS.length}: {r.topic}
+            Round {round + 1}/{rounds.length}: {r.topic}
           </div>
           <div className="bubble rival">
             <b>{rival.shortName} (caricature):</b> “{r.rival}”
@@ -135,7 +138,7 @@ export function DebateScreen({ engine, go }: { engine: Engine; go: (s: Screen) =
           {phase === 'choose' && (
             <div className="debate-options">
               {r.options.map((o, i) => (
-                <button key={o.text} className="btn" onClick={() => choose(i)}>
+                <button key={o.text} className="btn" data-score={o.score} onClick={() => choose(i)}>
                   {o.text}
                 </button>
               ))}
@@ -149,6 +152,11 @@ export function DebateScreen({ engine, go }: { engine: Engine; go: (s: Screen) =
               <div className="reaction">
                 {r.options[pick].reaction} <b>+{r.options[pick].score}</b>
               </div>
+              {r.heckle && r.options[pick].score >= 2 && (
+                <div className="bubble rival heckle">
+                  <b>{rival.shortName} (caricature), flustered:</b> “{r.heckle}”
+                </div>
+              )}
             </>
           )}
           {phase !== 'choose' && (

@@ -93,6 +93,21 @@ An endless run with any unlocked character. Environments rotate every 750 m, wit
 
 Five rounds of comic dialogue between the two caricatures. The rival says a campaign line, you choose a reply and the audience reacts. Score 10 of 15 to win. Every line is labelled fictional.
 
+## Satire layer
+
+All of this is labelled fictional satire in the game:
+
+- **Ribbon Race.** In the last 160 m of every level, the rival caricature sprints along the shoulder with giant scissors to cut *your* inauguration ribbon. They always arrive a step too late ("Arre! Yeh to humne 2015 mein socha tha!").
+- **Satirical obstacles:**
+  - a **"PARIVAAR MEETING"** sofa of arguing red-cap (fictional) relatives;
+  - a **"KAAM BOLTA HAI?"** board ("2017 result: 47 seats");
+  - a buffering **"FREE LAPTOP 2012"** pile;
+  - an **"ALLIANCE PARKING"** heap of cycles.
+- **UP RUN News.** Satire headlines appear as flashes during runs and in a ticker on the menu. Examples: "Family meeting on seat-sharing enters day 3,000", "Laptop from 2012 still buffering".
+- **One-liners.** The hero's catchphrases include "Kaam sirf bolta nahi — dikhta hai!" and "Rasta saaf, vikas aage!". The rival has comic comebacks after Red Cap Challenges and races.
+- **Debate Arena.** 14 rounds cover the family business, Kaam Bolta Hai, laptops, the cycle, alliances, credit and more. Each debate plays 5 random rounds with the replies shuffled.
+- **Quiz and missions.** The quiz bank covers SP's 2017 slogan, the 2017 and 2022 results, the 2017 cycle-symbol ruling, the laptop scheme, ODOP and the Maha Kumbh, all from `docs/SOURCES.md`. Missions include "Deliver 12 promises (unlike some manifestos)".
+
 ## Rival encounters and power-ups
 
 | Encounter | What happens |
@@ -143,7 +158,7 @@ Key decisions:
 
 ```bash
 npm run typecheck
-npm test             # 108 unit + integration tests (~3 min; one physics cross-check is slow)
+npm test             # 110 unit + integration tests (~3 min; one physics cross-check is slow)
 npm run build && npm run e2e   # 18 browser scenarios against the production build
 E2E_ONLY="Rivalry|Debate" npm run e2e   # run a subset by name
 ```

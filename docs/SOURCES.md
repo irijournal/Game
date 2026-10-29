@@ -22,6 +22,10 @@ Sources were checked on **2026-10-29**. Some government pages could not be reach
 - **Proposals are not investment.** The ₹33.5 lakh crore UP GIS 2023 figure is labelled government-reported and described as MoUs/proposals.
 - **Game scores are fictional.** Points, stars, tokens and the scoreboard measure the player's run, not real governance. The UI repeats this wherever scores appear.
 
+## Satire content (`src/content/jokes.ts`, `debate.ts`)
+
+News-ticker headlines, hero catchphrases, the rival caricature's one-liners and all Debate Arena dialogue are **fictional satire written for the game**. The UI labels every one of them: "UP RUN NEWS • satire, not real news", "fictional line", "game slogan". Jokes that mention a real-world number use only figures from the entries below (for example, the SP's 47 seats in 2017). None of these lines is a quote from a real person, and none accuses a real person of a crime.
+
 ## Entries
 
 ### Purvanchal Expressway (verified)
@@ -88,6 +92,42 @@ The UP government reported investment proposals (MoUs) worth ₹33.5 lakh crore 
 The first section opened on 5 Sep 2017 under the BJP government. The foundation stone was laid in Mar 2014 under the SP government.
 - Wikipedia: https://en.wikipedia.org/wiki/Lucknow_Metro
 - The Quint (2017-09): https://www.thequint.com/amp/story/news/india/lucknow-metro-rail-all-you-need-to-know
+
+### Maha Kumbh 2025 (government-reported)
+The UP government reported over 66.21 crore devotees bathing at the Triveni Sangam during the Maha Kumbh (13 Jan – 26 Feb 2025). This is the official tally announced on 26 Feb 2025; it has not been independently audited.
+- Morung Express (2025-02-26): https://morungexpress.com/6621-crore-devotees-in-maha-kumbh-set-global-record
+- India TV (2025-02-26): https://www.indiatvnews.com/uttar-pradesh/mahakumbh-over-66-21-crore-devotees-took-holy-dip-at-triveni-sangam-cm-yogi-adityanath-shares-count-2025-02-26-978119
+
+### One District One Product (verified)
+Launched by the UP government on 24 Jan 2018 to promote one signature product from each of the 75 districts. Job and export figures quoted for ODOP are government-reported.
+- UP Government: https://www.library.up.gov.in/Pages/odop/en
+
+### UP Assembly election 2017 (verified)
+The BJP won 312 of 403 seats on its own (325 with allies), returning to power after 15 years. The SP won 47 seats and its ally Congress 7.
+- Wikipedia: https://en.wikipedia.org/wiki/2017_Uttar_Pradesh_Legislative_Assembly_election
+
+### UP Assembly election 2022 (verified)
+The BJP won 255 seats (273 with allies) and kept power; the SP won 111 and became the main opposition party.
+- ETV Bharat (2022-03-10): https://www.etvbharat.com/english/bharat/up-election-result-2022-a-saffron-landscape-with-patches-of-red/na20220310222016822
+
+### "Kaam Bolta Hai" (verified)
+"Kaam Bolta Hai" (the work speaks) was the theme of the SP's 2017 assembly campaign, and the SP won 47 seats in that election. The in-game "KAAM BOLTA HAI?" board pairs the real slogan with the real result; the joke itself is satire.
+- The Pioneer (2020): https://www.dailypioneer.com/2020/state-editions/sp-launches-campaign--for-up-assembly-polls.html
+- Millennium Post (2017-02): https://www.millenniumpost.in/nation/news-183720
+
+### The 2017 Samajwadi family feud (verified)
+The SP split on 1 Jan 2017 when Akhilesh Yadav's faction replaced his father Mulayam Singh Yadav as party president. On 16 Jan 2017 the Election Commission awarded the party name and the cycle symbol to Akhilesh's faction. The in-game "PARIVAAR MEETING" roadblock uses *fictional* red-cap relatives, not real people.
+- Scroll.in (2017-01-16): https://scroll.in/a/826874
+- Onmanorama (2017-01): https://www.onmanorama.com/in-depth/assembly-poll--five-states-up/ec-gives-cycle-symbol-to-akhilesh-faction-sp-feud-.amp.html
+
+### SP's free laptop scheme (verified)
+The SP's 2012 manifesto promised free laptops to Class 12 pass-outs. The 2012–13 budget set aside ₹2,721 crore, and the scheme was shelved in the 2014–15 budget. Reports disagree on how many laptops were finally handed out, so the game quotes no number.
+- Wikipedia: https://en.wikipedia.org/wiki/Free_laptop_distribution_scheme_of_the_Uttar_Pradesh_government
+- Gulf News: https://gulfnews.com/world/asia/india/uttar-pradesh-governments-laptop-scheme-crashes-1.1205091
+
+### "Parivarvad" / dynasty politics (political claim)
+The BJP attacks the SP as a party of dynasty politics. The SP was founded by Mulayam Singh Yadav and is led by his son Akhilesh Yadav, and several family members have held party posts and seats. Those family facts are on the record; whether that makes a party worse is the political argument, and the SP rejects the charge.
+- Wikipedia: https://en.wikipedia.org/wiki/Samajwadi_Party
 
 ### Law and order as a campaign theme (political claim)
 The BJP presents law and order as a central achievement of its UP government, and opposition parties including the SP dispute that record. The game uses this as a campaign theme only and shows no crime statistics.

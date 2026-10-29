@@ -6,7 +6,7 @@ import type { CharacterId, Encounter } from '../../sim/types';
 import { buildCharacter, disposeRig } from './characterModels';
 import type { CharacterRig } from './characterRig';
 import type { Particles } from './effects';
-import { basic, box, cyl, lambert, mergeStatic, mesh, plane, toon } from './materials';
+import { basic, box, cyl, lambert, mergeStatic, mesh, plane, sphere, toon, torus } from './materials';
 import { buildProp } from './scenery';
 import { blobShadow, bunting, drawSign, sign } from './textures';
 import { buildBulldozer, type Vehicle } from './vehicles';
@@ -18,6 +18,8 @@ const GATE_COLORS: [string, string][] = [
 ];
 const LETTERS = ['A', 'B', 'C'];
 const RIVAL_X = -CHASER_LANE_X;
+/** Metres before a level's finish where the Ribbon Race begins. */
+export const RIBBON_RACE = 160;
 
 interface Gate {
   root: THREE.Group;
@@ -50,6 +52,11 @@ export class EncounterViews {
   private helper: Vehicle;
   private helperAmt = 0;
   private finishCelebrated = false;
+  /** Inauguration ribbon across the finish: two halves that flutter apart when cut. */
+  private ribbon: THREE.Group[] = [];
+  private ribbonCut = 0;
+  /** Giant scissors the rival brings to the Ribbon Race. */
+  private scissors: THREE.Group;
   /** Red Cap result beat: +1 overtaken (rival drops back), -1 rival pulls away. */
   private redCapExit = 0;
 
@@ -61,6 +68,7 @@ export class EncounterViews {
     this.runnerShadow.rotation.x = -Math.PI / 2;
     this.runnerShadow.visible = false;
     this.group.add(this.runnerShadow);
+    this.scissors = this.buildScissors();
     this.helper = buildBulldozer();
     this.helper.root.visible = false;
     this.helper.root.scale.setScalar(0.85);
@@ -93,6 +101,17 @@ export class EncounterViews {
     }
     g.add(strip);
     const merged = mergeStatic(g);
+    // The ribbon stays separate so it can be cut.
+    const ribbonMat = toon(0xd8202a, { side: THREE.DoubleSide });
+    for (const side of [-1, 1]) {
+      const pivot = new THREE.Group();
+      pivot.position.set(side * x, 1.3, 0);
+      const half = mesh(box(x, 0.22, 0.03), ribbonMat, -side * (x / 2), 0, 0);
+      pivot.add(half);
+      merged.add(pivot);
+      this.ribbon.push(pivot);
+    }
+    merged.add(mesh(sphere(0.28, 10, 8), toon(0xd8202a), 0, 1.3, 0.05));
     for (const [cx, cz, kind] of [
       [-8.8, 1.5, 'crowdTown'],
       [8.8, 1.5, 'crowdFarm'],
@@ -106,6 +125,19 @@ export class EncounterViews {
       this.crowds.push(c);
     }
     return merged;
+  }
+
+  private buildScissors(): THREE.Group {
+    const g = new THREE.Group();
+    const steel = toon(0xd8dee6);
+    for (const r of [-0.25, 0.25]) {
+      const blade = mesh(box(0.06, 0.75, 0.03), steel, 0, -0.42, 0);
+      blade.rotation.z = r;
+      g.add(blade);
+    }
+    for (const x of [-0.12, 0.12]) g.add(mesh(torus(0.1, 0.03, Math.PI * 2, 6, 14), toon(0xd8202a), x, 0.02, 0));
+    g.visible = false;
+    return g;
   }
 
   private buildGate(): Gate {
@@ -158,6 +190,9 @@ export class EncounterViews {
     this.runnerId = rivalId;
     this.runner.root.visible = false;
     this.group.add(this.runner.root);
+    this.scissors.removeFromParent();
+    this.scissors.position.set(0, -0.38, -0.05);
+    this.runner.joints.elR.add(this.scissors);
   }
 
   reset(): void {
@@ -173,6 +208,9 @@ export class EncounterViews {
     this.helper.root.visible = false;
     this.finishCelebrated = false;
     this.redCapExit = 0;
+    this.ribbonCut = 0;
+    this.ribbon.forEach((p) => p.rotation.set(0, 0, 0));
+    this.scissors.visible = false;
   }
 
   update(dt: number, sim: Simulation, time: number, fx: Particles): void {
@@ -184,6 +222,9 @@ export class EncounterViews {
     if (this.finish.visible) {
       this.finish.position.z = fz;
       this.crowds.forEach((c, i) => (c.position.y = 0.2 + Math.abs(Math.sin(time * 6 + i)) * 0.22));
+      // The runner cuts the ribbon by crossing it; the halves flutter down.
+      if (fz > -0.3 && sim.cfg.level) this.ribbonCut = Math.min(1, this.ribbonCut + dt * 2.5);
+      this.ribbon.forEach((p, i) => (p.rotation.z = (i ? 1 : -1) * this.ribbonCut * 1.25));
       if (!this.finishCelebrated && fz > -2 && sim.state === 'GAME_OVER') {
         this.finishCelebrated = true;
         fx.fireworks({ x: -4, y: 6, z: fz - 4 });
@@ -231,7 +272,15 @@ export class EncounterViews {
         want = { z: Math.max(-80, Math.min(16, -(sim.rivalD - (d + sim.raceBoost)))), x: RIVAL_X };
       } else {
         const rc = sim.encounters.find((e) => e.kind === 'redCap' && e.started && (!e.ended || d - e.s1 < 40));
-        if (rc) {
+        const lv = sim.cfg.level;
+        const left = lv ? lv.length - d : Infinity;
+        if (!rc && lv && left < RIBBON_RACE) {
+          // Ribbon Race: the rival sprints for the ribbon with giant
+          // scissors… and the runner overtakes just before the line.
+          const k = Math.max(0, Math.min(1, 1 - left / RIBBON_RACE));
+          // At the line it pulls up beside the winner, a step too late.
+          want = sim.state === 'GAME_OVER' ? { z: -(lv.length - d) + 1.2, x: sim.player.x - 1.9 } : { z: -20 + k * 26, x: RIVAL_X };
+        } else if (rc) {
           if (!rc.ended) {
             this.redCapExit = 0;
             want = { z: -11 + Math.sin(time * 0.7) * 3, x: RIVAL_X };
@@ -250,7 +299,9 @@ export class EncounterViews {
         this.runnerX += (want.x - this.runnerX) * Math.min(1, dt * 3);
         runner.root.position.set(this.runnerX, 0, this.runnerZ);
         runner.root.rotation.set(0, 0, 0);
-        runner.setAnim(sim.state === 'GAME_OVER' ? (sim.summary?.race?.won === false ? 'victory' : 'idle') : 'run');
+        const ribbonRace = !!sim.cfg.level && !sim.encounters.some((e) => e.kind === 'redCap' && e.started && !e.ended) && sim.cfg.level.length - d < RIBBON_RACE;
+        this.scissors.visible = ribbonRace;
+        runner.setAnim(sim.state === 'GAME_OVER' ? (sim.summary?.race?.won === false ? 'victory' : ribbonRace && Math.abs(this.runnerZ - want.z) > 1 ? 'run' : 'idle') : 'run');
         runner.update(dt, sim.state === 'GAME_OVER' ? 0 : sim.speed);
         this.runnerShadow.visible = true;
         this.runnerShadow.position.set(this.runnerX, 0.02, this.runnerZ);

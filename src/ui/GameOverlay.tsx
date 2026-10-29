@@ -76,7 +76,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
           setCaptions([]);
           break;
         case 'toast':
-          setToasts((t) => [...t.filter((x) => x.until > now), { id: uid++, until: now + 2800, data: { text: ev.text, sub: ev.sub, tone: ev.tone } }].slice(-3));
+          setToasts((t) => [...t.filter((x) => x.until > now), { id: uid++, until: now + 3200, data: { text: ev.text, sub: ev.sub, tone: ev.tone } }].slice(-2));
           break;
         case 'comic':
           setComic({ id: uid++, until: now + 900, data: ev.text });

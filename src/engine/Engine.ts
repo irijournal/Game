@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { factById, FACT_TYPE_LABEL } from '../content/facts';
 import { levelById, type LevelId } from '../content/levels';
+import { COMIC_WORDS, HERO_LINES, NEWS_HEADLINES, pick, RIVAL_LINES } from '../content/jokes';
 import { QUIZ, quizById } from '../content/quiz';
 import { activeMissions, applyRun, perksFor, type RunResultInfo, type SaveStore, type Settings } from '../save/save';
 import { Autopilot } from '../sim/autopilot';
@@ -21,7 +22,7 @@ import type { CharacterRig } from './view/characterRig';
 import { INTRO_LENGTH, introShot, RivalDirector } from './view/cinematics';
 import { DebateStage, type Speaker } from './view/debateStage';
 import { Particles } from './view/effects';
-import { EncounterViews } from './view/encounterViews';
+import { EncounterViews, RIBBON_RACE } from './view/encounterViews';
 import { basic, mergeStatic, mesh, plane } from './view/materials';
 import { buildAutoRickshaw } from './view/vehicles';
 import { debugCollider, ObstaclePool, type ObstacleView } from './view/obstacleViews';
@@ -49,7 +50,6 @@ interface Knocked {
   spin: number;
 }
 
-const COMIC_WORDS = ['DHADAAM!', 'OOPS!', 'THUD!', 'WHOOPS!', 'ARRE!', 'BONK!'];
 const HINTS: Record<ObstacleClass, string> = {
   low: 'JUMP!  Swipe ↑ or press Space / ↑',
   high: 'SLIDE!  Swipe ↓ or press ↓',
@@ -114,6 +114,9 @@ export class Engine {
   private celebrateT = 0;
   /** Seconds since the simulation reached GAME_OVER. */
   private overT = 0;
+  /** Seconds until the next "UP RUN News" satire flash. */
+  private newsT = 18;
+  private ribbonRaceShown = false;
   private pendingResult: { summary: RunSummary; info: RunResultInfo } | null = null;
   debugAutopilot = false;
   /** Test hook: when true the RAF loop idles and stepManual() drives time. */
@@ -202,6 +205,9 @@ export class Engine {
   }
 
   private emit(e: UiEvent): void {
+    // Satire flashes wait for a quiet moment so they never pile on top of
+    // gameplay messages.
+    if (e.type === 'toast' || e.type === 'caption' || e.type === 'factCard') this.newsT = Math.max(this.newsT, 9);
     this.listeners.forEach((l) => l(e));
   }
 
@@ -297,6 +303,8 @@ export class Engine {
     this.captions = [];
     this.celebrateT = 0;
     this.overT = 0;
+    this.newsT = 18;
+    this.ribbonRaceShown = false;
     this.pendingResult = null;
     this.audio.engine(false);
   }
@@ -667,6 +675,8 @@ export class Engine {
     this.fx.update(dt, dz);
     this.coinSfxT -= dt;
 
+    this.tickComedy(dt, sim);
+
     if (this.celebrateT > 0) {
       this.celebrateT -= dt;
       if (Math.random() < dt * 3) this.fx.fireworks({ x: (Math.random() - 0.5) * 8, y: 5 + Math.random() * 2, z: -6 - Math.random() * 4 });
@@ -681,6 +691,31 @@ export class Engine {
       this.hudTimer = 0.1;
       this.pushHud(false);
     }
+  }
+
+  /** Satire flashes and the Ribbon Race beat (presentation only). */
+  private tickComedy(dt: number, sim: Simulation): void {
+    const lv = sim.cfg.level;
+    if (lv && !this.ribbonRaceShown && sim.state === 'RUNNING' && lv.length - sim.d < RIBBON_RACE) {
+      this.ribbonRaceShown = true;
+      this.audio.play('warn');
+      this.caption('RIBBON RACE!', `${CHARACTERS[sim.cfg.rival].shortName} (caricature) brought giant scissors to cut YOUR ribbon. Get there first!`, 'challenge', 2000, 0);
+    }
+    if (sim.state !== 'RUNNING') return;
+    this.newsT -= dt;
+    if (this.newsT <= 0) {
+      this.emit({ type: 'toast', text: pick(NEWS_HEADLINES), sub: 'UP RUN NEWS • satire, not real news', tone: 'news' });
+      this.newsT = 24 + Math.random() * 10;
+    }
+  }
+
+  private rivalSays(line: string): void {
+    this.emit({ type: 'toast', text: `“${line}”`, sub: `${CHARACTERS[this.sim?.cfg.rival ?? 'akhilesh'].shortName} (caricature) • fictional line`, tone: 'rival' });
+  }
+
+  private heroSays(): void {
+    const id = this.sim?.cfg.character ?? 'yogi';
+    this.emit({ type: 'toast', text: `“${pick(HERO_LINES)}”`, sub: `${CHARACTERS[id].shortName} • game slogan`, tone: 'hero' });
   }
 
   private pushHud(force: boolean): void {
@@ -1102,17 +1137,21 @@ export class Engine {
         break;
       case 'levelComplete':
         a.play('fanfare');
-        this.caption('LEVEL COMPLETE!', `${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} • +${e.points}`, 'success', 2000, 0);
+        this.caption('RIBBON CUT! LEVEL COMPLETE!', `${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} • +${e.points}`, 'success', 2000, 0);
+        this.heroSays();
+        this.rivalSays(pick(RIVAL_LINES.ribbonLate));
         this.fx.confetti({ x: p.x, y: 3, z: -2 }, [0xff8c1a, 0xffffff, 0x1f8a4c, 0xffd23a], 90);
         break;
       case 'raceEnd':
         if (e.won) {
           a.play('fanfare');
           this.caption('DEVELOPMENT RACE WON!', `Ahead by ${Math.max(0, e.margin)} m`, 'success', 2000, 0);
+          this.rivalSays(pick(RIVAL_LINES.raceLost));
           this.fx.confetti({ x: p.x, y: 3, z: -2 }, [0xff8c1a, 0xffffff, 0x1f8a4c, 0xffd23a], 90);
         } else {
           a.play('wrong');
           this.caption('THE RIVAL FINISHED FIRST', `Behind by ${Math.max(0, e.margin)} m — collect more tokens for a boost`, 'warn', 2000, 0);
+          this.rivalSays(pick(RIVAL_LINES.raceWon));
         }
         break;
       case 'guard':
@@ -1161,7 +1200,11 @@ export class Engine {
         if (!enc.failed) {
           a.play('success');
           this.emit({ type: 'toast', text: `CHALLENGE WON +${e.points}`, sub: 'Har challenge ka jawab — performance!', tone: 'bonus' });
-        } else this.emit({ type: 'toast', text: 'CHALLENGE LOST', sub: 'A stumble cost you the Red Cap Challenge', tone: 'warn' });
+          this.rivalSays(pick(RIVAL_LINES.challengeLost));
+        } else {
+          this.emit({ type: 'toast', text: 'CHALLENGE LOST', sub: 'A stumble cost you the Red Cap Challenge', tone: 'warn' });
+          this.rivalSays(pick(RIVAL_LINES.challengeWon));
+        }
       }
       return;
     }

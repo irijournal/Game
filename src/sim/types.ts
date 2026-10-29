@@ -15,6 +15,8 @@ export type ObstacleKind =
   | 'delaySign'
   | 'pallet'
   | 'droneCrate'
+  | 'laptopPile'
+  | 'cycleHeap'
   // gaps (jump or change lane)
   | 'pothole'
   | 'roadGap'
@@ -42,7 +44,9 @@ export type ObstacleKind =
   | 'tractor'
   | 'unfinishedSign'
   | 'forklift'
-  | 'maglevPod';
+  | 'maglevPod'
+  | 'familyMeeting'
+  | 'kaamPoster';
 
 /** Development tokens look different in every environment. */
 export type TokenVariant = 'road' | 'diya' | 'plane' | 'wheat' | 'welfare' | 'shield' | 'gear' | 'star';

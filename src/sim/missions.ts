@@ -11,6 +11,7 @@ export type MissionStat =
   | 'rivalWins'
   | 'quizCorrect'
   | 'roadsCleared'
+  | 'promisesDelivered'
   | 'vikasRides';
 
 export interface MissionDef {
@@ -34,6 +35,9 @@ export const MISSION_POOL: readonly MissionDef[] = [
   { id: 'jumps3', title: 'Complete three successful jumps in a run', stat: 'jumpsOver', goal: 3, scope: 'run', reward: 60 },
   { id: 'clean800', title: 'Run 800 m without a collision', stat: 'cleanDistance', goal: 800, scope: 'run', reward: 150 },
   { id: 'slides5', title: 'Slide under five barriers today', stat: 'slidesUnder', goal: 5, scope: 'day', reward: 80 },
+  { id: 'promises12', title: 'Deliver 12 promises (unlike some manifestos)', stat: 'promisesDelivered', goal: 12, scope: 'day', reward: 150 },
+  { id: 'rival3', title: 'Leave the red cap behind three times today', stat: 'rivalWins', goal: 3, scope: 'day', reward: 250 },
+  { id: 'quiz5', title: 'Answer five Accountability Gates right today', stat: 'quizCorrect', goal: 5, scope: 'day', reward: 220 },
 ];
 
 export const MISSIONS_PER_DAY = 3;

@@ -69,9 +69,9 @@ export const LEVELS: readonly LevelDef[] = [
     diff: 0.12,
     events: [
       { kind: 'redCap', at: 420, len: 230 },
-      { kind: 'quiz', at: 850, quiz: 'q.ayodhyaAirport' },
+      { kind: 'quiz', at: 850, quiz: 'q.kumbh' },
     ],
-    facts: ['pranPratishtha', 'ayodhyaAirport', 'kashi'],
+    facts: ['pranPratishtha', 'ayodhyaAirport', 'kashi', 'mahaKumbh'],
     slogan: 'Har challenge ka jawab — performance!',
   },
   {
@@ -128,8 +128,9 @@ export const LEVELS: readonly LevelDef[] = [
       { kind: 'promises', at: 350, len: 260 },
       { kind: 'bulldozer', at: 750 },
       { kind: 'quiz', at: 1050, quiz: 'q.ujjwala' },
+      { kind: 'quiz', at: 1250, quiz: 'q.laptop' },
     ],
-    facts: ['ujjwala', 'jalJeevan'],
+    facts: ['ujjwala', 'jalJeevan', 'laptopScheme'],
     slogan: 'Promises are easy. Delivery is the challenge!',
   },
   {
@@ -148,8 +149,9 @@ export const LEVELS: readonly LevelDef[] = [
       { kind: 'redCap', at: 380, len: 280 },
       { kind: 'quiz', at: 900, quiz: 'q.gundaraj' },
       { kind: 'promises', at: 1050, len: 240 },
+      { kind: 'quiz', at: 1360, quiz: 'q.cycle' },
     ],
-    facts: ['lawOrder', 'gundaraj', 'lucknowMetro'],
+    facts: ['lawOrder', 'gundaraj', 'spFeud', 'parivarvad', 'lucknowMetro'],
     slogan: 'Gundaraj or good governance? The showdown begins!',
   },
   {
@@ -168,8 +170,9 @@ export const LEVELS: readonly LevelDef[] = [
       { kind: 'promises', at: 450, len: 260 },
       { kind: 'bulldozer', at: 850 },
       { kind: 'quiz', at: 1150, quiz: 'q.gis' },
+      { kind: 'quiz', at: 1450, quiz: 'q.odop' },
     ],
-    facts: ['gis2023'],
+    facts: ['gis2023', 'odop'],
     slogan: 'Race for roads, jobs and better public services!',
   },
   {
@@ -186,11 +189,11 @@ export const LEVELS: readonly LevelDef[] = [
     diff: 0.65,
     events: [
       { kind: 'redCap', at: 400, len: 280 },
-      { kind: 'quiz', at: 850, quiz: 'q.score' },
+      { kind: 'quiz', at: 850, quiz: 'q.kaam' },
       { kind: 'promises', at: 1050, len: 260 },
-      { kind: 'quiz', at: 1500, quiz: 'q.metro' },
+      { kind: 'quiz', at: 1500, quiz: 'q.seats2022' },
     ],
-    facts: ['viksitUP', 'gameElements'],
+    facts: ['viksitUP', 'up2017', 'up2022', 'kaamBoltaHai', 'gameElements'],
     slogan: 'Performance is the real scoreboard.',
   },
 ];

@@ -250,10 +250,10 @@ export class World {
     this.group.add(this.skylineRoot);
     for (const t of THEME_ORDER) {
       const g = this.buildSkyline(t);
-      g.visible = t === 'lawandorder';
       this.skylines.set(t, g);
       this.skylineRoot.add(g);
     }
+    this.snapSkyline('lawandorder');
 
     // Vikas Express flyover decor.
     this.vikasTex = canvasTexture(
@@ -662,6 +662,15 @@ export class World {
     this.blockMap.clear();
   }
 
+  /** Show exactly one skyline, without the crossfade (run starts, menus). */
+  private snapSkyline(theme: ThemeId): void {
+    for (const [t, g] of this.skylines) {
+      const m = (g.children[0] as THREE.Mesh | undefined)?.material as THREE.MeshBasicMaterial | undefined;
+      if (m) m.opacity = t === theme ? 1 : 0;
+      g.visible = t === theme;
+    }
+  }
+
   setTheme(theme: ThemeId, instant = false): void {
     const p = PALETTES[theme];
     if (p === this.target && !instant) return;
@@ -670,6 +679,7 @@ export class World {
     this.paletteT = instant ? 1 : 0;
     if (instant) this.applyPalette(1);
     this.skylineTheme = theme;
+    if (instant) this.snapSkyline(theme);
     const env = ENV_STYLES[theme];
     this.walkTex = this.walkTextures[env.walk];
     if (this.walkMat.map !== this.walkTex) {

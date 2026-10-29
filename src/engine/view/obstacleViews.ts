@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { OBSTACLES } from '../../sim/obstacles';
 import type { ObstacleKind } from '../../sim/types';
 import { ROAD_HALF_WIDTH } from '../../sim/constants';
-import { box, cone, cyl, lambert, mergeStatic, mesh, plane, sphere, toon, basic } from './materials';
+import { box, cone, cyl, lambert, mergeStatic, mesh, plane, sphere, toon, torus, basic } from './materials';
+import { citizen } from './scenery';
 import { blobShadow, bunting, canvasTexture, FONT, sign, stripes } from './textures';
 import { buildBus, buildMediaVan, buildTruck } from './vehicles';
 
@@ -523,6 +524,77 @@ function build(kind: ObstacleKind, variant: number): ObstacleView {
       root.add(mesh(box(1.94, 0.08, def.depth - 1.2), basic(0xffa040), 0, 2.55, zc - 0.4));
       root.add(mesh(box(1.4, 0.4, def.depth), toon(0x30304a), 0, 0.3, zc));
       root.add(shadowUnder(2.4, def.depth + 0.6));
+      break;
+    }
+
+    // ------------------------------------------------- satire obstacles
+    case 'familyMeeting': {
+      // A fictional "family meeting" blocking the lane: a sofa, three
+      // red-cap relatives arguing, and a board above them.
+      const sofa = toon(0x8a2a2a);
+      root.add(mesh(box(1.9, 0.45, 0.8), sofa, 0, 0.32, -0.9));
+      root.add(mesh(box(1.9, 0.75, 0.2), sofa, 0, 0.75, -1.25));
+      for (const x of [-0.92, 0.92]) root.add(mesh(box(0.16, 0.6, 0.8), sofa, x, 0.5, -0.9));
+      const relative = (x: number, z: number, armsUp: boolean, shirt: number) =>
+        citizen({ shirt, pants: 0xf2f2ee, hat: { kind: 'cap', color: 0xd8202a } }, x, z, 0.92, armsUp);
+      root.add(relative(-0.6, -0.55, true, 0xffffff), relative(0.05, -0.45, false, 0xf6e9c8), relative(0.62, -0.6, true, 0xffffff));
+      for (const x of [-0.85, 0.85]) root.add(mesh(box(0.1, 2.8, 0.1), toon(0x5a5f66), x, 1.4, -1.45));
+      const board = lambert(0xffffff, { map: sign('PARIVAAR MEETING', { bg: '#fff3c4', fg: '#c81e1e', border: '#c81e1e', sub: 'TICKET TALKS SINCE 2016 • SATIRE', subColor: '#1a1a1a', w: 512, h: 220 }) });
+      root.add(mesh(box(1.9, 0.82, 0.08), board, 0, 2.38, -1.42));
+      root.add(shadowUnder(2.4, def.depth + 0.6));
+      break;
+    }
+    case 'kaamPoster': {
+      const panel = lambert(0xffffff, { map: sign('KAAM BOLTA HAI?', { bg: '#d8202a', fg: '#ffffff', sub: '2017 RESULT: 47 SEATS • SATIRE SIGN', subColor: '#fff3c4', w: 512, h: 512, stripe: false, border: '#ffffff' }) });
+      root.add(mesh(box(1.94, 2.2, 0.15), panel, 0, 1.65, zc));
+      for (const x of [-0.85, 0.85]) root.add(mesh(box(0.12, 2.8, 0.12), toon(0x5a5f66), x, 1.4, zc - 0.12));
+      // An empty speech bubble: the work is… quiet.
+      const bubble = lambert(0xffffff, { map: sign('…', { bg: '#ffffff', fg: '#1a1a1a', border: '#1a1a1a', w: 256, h: 160 }) });
+      root.add(mesh(box(0.7, 0.45, 0.06), bubble, 0.55, 2.95, zc + 0.05));
+      root.add(shadowUnder(2.4, 1.0));
+      break;
+    }
+    case 'laptopPile': {
+      const shell = toon(0x4a4f58);
+      for (let i = 0; i < 4; i++) {
+        root.add(mesh(box(0.72, 0.07, 0.52), shell, -0.45 + (i % 2) * 0.05, 0.05 + i * 0.075, zc + (i % 2 ? 0.05 : -0.04)));
+        root.add(mesh(box(0.72, 0.07, 0.52), shell, 0.45 + (i % 2) * -0.04, 0.05 + i * 0.075, zc - (i % 2 ? 0.04 : 0)));
+      }
+      // One open laptop on top, stuck loading.
+      const screen = lambert(0xffffff, { map: sign('BUFFERING…', { bg: '#10141c', fg: '#7af7ff', sub: 'since 2012', subColor: '#9aa3ad', w: 256, h: 180 }) });
+      root.add(mesh(box(0.72, 0.05, 0.5), shell, 0, 0.36, zc));
+      const lid = mesh(box(0.72, 0.5, 0.04), screen, 0, 0.6, zc - 0.25);
+      lid.rotation.x = -0.25;
+      root.add(lid);
+      root.add(mesh(plane(1.0, 0.26), lambert(0xffffff, { map: sign('FREE LAPTOP 2012', { bg: '#ffffff', fg: '#c81e1e', w: 256, h: 70 }) }), 0, 0.2, 0.3 + zc));
+      root.add(shadowUnder(2.0, 1.2));
+      break;
+    }
+    case 'cycleHeap': {
+      // Tangled bicycles in a heap: "alliance parking".
+      const cycle = (x: number, rotY: number, tilt: number, color: number) => {
+        const g = new THREE.Group();
+        const tyre = toon(0x1a1a1a);
+        for (const z of [-0.42, 0.42]) {
+          const w = mesh(torus(0.3, 0.035, Math.PI * 2, 6, 18), tyre, 0, 0.3, z);
+          w.rotation.y = Math.PI / 2;
+          g.add(w);
+        }
+        const frame = toon(color);
+        g.add(mesh(box(0.05, 0.05, 0.84), frame, 0, 0.42, 0));
+        const down = mesh(box(0.05, 0.05, 0.5), frame, 0, 0.55, -0.12);
+        down.rotation.x = 0.7;
+        g.add(down, mesh(box(0.38, 0.04, 0.04), toon(0x333333), 0, 0.72, -0.36));
+        g.position.set(x, 0, zc);
+        g.rotation.set(0, rotY, tilt);
+        return g;
+      };
+      root.add(cycle(-0.45, 0.4, 1.35, 0xd8202a), cycle(0.4, -0.5, -1.3, 0x179c3c), cycle(0.05, 0.15, 0.3, 0xd8202a));
+      const tag = lambert(0xffffff, { map: sign('ALLIANCE PARKING', { bg: '#ffffff', fg: '#1a1a1a', border: '#1a1a1a', sub: 'satire', w: 256, h: 120 }) });
+      const board = mesh(box(0.9, 0.42, 0.05), tag, 0, 0.75, zc + 0.35);
+      board.rotation.x = -0.25;
+      root.add(board, mesh(box(0.05, 0.75, 0.05), toon(0x777777), 0, 0.37, zc + 0.38));
+      root.add(shadowUnder(2.1, 1.4));
       break;
     }
   }

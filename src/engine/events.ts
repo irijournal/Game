@@ -3,7 +3,7 @@ import type { RunSummary } from '../sim/simulation';
 import type { CharacterId, EncounterKind, ModeId, SimState, ThemeId, TokenVariant } from '../sim/types';
 
 export type CaptionTone = 'challenge' | 'showdown' | 'chase' | 'success' | 'go' | 'warn' | 'info';
-export type ToastTone = 'mission' | 'discovery' | 'bonus' | 'info' | 'warn' | 'powerup';
+export type ToastTone = 'mission' | 'discovery' | 'bonus' | 'info' | 'warn' | 'powerup' | 'news' | 'rival' | 'hero';
 
 export type UiEvent =
   | { type: 'caption'; text: string; sub?: string; tone: CaptionTone; ms: number }

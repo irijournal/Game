@@ -451,8 +451,10 @@ const release = (page) => page.evaluate(() => (window.__UPRUN__.engine.manual = 
       for (let k = 0; k < 80; k++) {
         if ((await page.isVisible('text=DEBATE WON!')) || (await page.isVisible('text=THE CROWD WANTS MORE'))) break;
         if (await page.isVisible('.debate-options .btn')) {
-          // Options are listed best-first in this script's content; the last is the weakest.
-          await page.click(`.debate-options .btn >> nth=${best ? 0 : 2}`);
+          // Replies are shuffled each game: pick by the audience score.
+          const scores = await page.$$eval('.debate-options .btn', (bs) => bs.map((b) => Number(b.dataset.score)));
+          const target = best ? Math.max(...scores) : Math.min(...scores);
+          await page.click(`.debate-options .btn >> nth=${scores.indexOf(target)}`);
         } else if (await page.isVisible('text=Continue')) await page.click('text=Continue');
         await page.waitForTimeout(80);
       }
