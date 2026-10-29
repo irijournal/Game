@@ -1,0 +1,56 @@
+// Landscape UI walkthrough with real clicks: node dev/ui-landscape.cjs <outdir>
+const { chromium } = require('playwright');
+(async () => {
+  const [, , out] = process.argv;
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.goto('http://localhost:5173/');
+  await page.waitForFunction(() => !!window.__UPRUN__, null, { timeout: 30000 });
+  const shot = (n) => page.screenshot({ path: `${out}/${n}.png` });
+  const E = (fn, arg) => page.evaluate(fn, arg);
+  await E(() => window.__UPRUN__.engine.stepManual(2.0)); await shot('l01_aerial');
+  await E(() => window.__UPRUN__.engine.stepManual(4.5)); await shot('l02_closeup');
+  await E(() => window.__UPRUN__.engine.stepManual(2.2)); await shot('l03_turn');
+  await E(() => (window.__UPRUN__.engine.manual = false));
+  await page.waitForSelector('text=▶ START', { timeout: 20000 });
+  await page.waitForTimeout(600);
+  await shot('l04_title');
+  await page.click('text=▶ START');
+  await page.waitForTimeout(500);
+  // Toast + info card + hint + caption over gameplay.
+  await E(() => {
+    const e = window.__UPRUN__.engine;
+    e.emit({ type: 'toast', text: 'MISSION COMPLETE', sub: 'Travel 1,500 m in one run • +250 pts, +150 coins', tone: 'mission' });
+    e.emit({ type: 'infoCard', title: 'GAME SCENARIO (FICTIONAL): DEVELOPMENT ROUTE', body: 'The made-up "Vikas Path" flyover in this made-up city has been "opening soon" for years. Expect cones, barriers and extra coins. Satire — not a claim about any real project.' });
+    e.emit({ type: 'hint', text: 'SLIDE!  Swipe ↓ or press ↓' });
+  });
+  await page.waitForTimeout(300);
+  await shot('l05_hud_toast_card');
+  await E(() => { window.__UPRUN__.autopilot(true); window.__UPRUN__.stumble(); });
+  await page.waitForFunction(() => window.__UPRUN__.info().state === 'CINEMATIC' && window.__UPRUN__.info().stateTime > 2.0, null, { timeout: 30000 });
+  await shot('l06_cine_caption');
+  await page.waitForFunction(() => window.__UPRUN__.info().state === 'CHASE' && window.__UPRUN__.info().stateTime > 2.5, null, { timeout: 30000 });
+  await shot('l07_chase_hud');
+  await E(() => window.__UPRUN__.engine.setAutopilot(false));
+  await page.waitForSelector('text=↻ Retry', { timeout: 60000 });
+  await page.waitForTimeout(900);
+  await page.click('text=Show score breakdown');
+  await page.waitForTimeout(300);
+  await shot('l08_results');
+  await page.click('text=⌂ Main menu');
+  await page.waitForTimeout(600);
+  await page.click('text=START GAME');
+  await page.click('text=Chase ▸');
+  await page.waitForTimeout(700);
+  await shot('l09_modeB_start');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  await page.click('text=↻ Restart run');
+  await page.waitForTimeout(200);
+  await shot('l10_confirm_restart');
+  console.log('ERRORS\n' + errors.join('\n'));
+  await browser.close();
+})();

@@ -132,8 +132,14 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
               </div>
             )}
             {hud.mode !== 'B' && (
-              <div className={`guard ${hud.guardReady ? 'ready' : ''}`}>
-                {hud.guardReady ? '🛡 Stumble guard ready' : hud.guardT > 0 ? `🛡 Guard recharging ${Math.ceil(hud.guardT)}s` : '🛡 Guard used — escape the chase!'}
+              <div className={`guard ${hud.guardReady && hud.state !== 'CHASE' ? 'ready' : ''}`}>
+                {hud.state === 'CHASE' || hud.state === 'CINEMATIC'
+                  ? '⚠ Chase: one hit ends the run'
+                  : hud.guardReady
+                    ? '🛡 Stumble guard ready'
+                    : hud.guardT > 0
+                      ? `🛡 Guard recharging ${Math.ceil(hud.guardT)}s`
+                      : '🛡 Guard used'}
               </div>
             )}
           </div>

@@ -32,7 +32,7 @@ Starting point: the target repository was empty, so there was no earlier UP RUN 
 | 15 | No event blocks all routes unfairly | Tested (auto) | 10,000 generated chunks validated from every lane; physics search on 90 chunks × 3 lanes × 2 speeds |
 | 16 | No critical runtime errors | Tested (auto) | every e2e scenario asserts zero page/console errors |
 | — | Production build loads its assets | Tested (auto) | e2e runs against `vite preview` of `dist/`; no external assets |
-| — | Responsive during extended play | Tested (auto) | soak: 15 game-minutes and 21 km; GPU geometries and textures plateau, heap flat, object counts bounded |
+| — | Responsive during extended play | Tested (auto) | soak: 15 game-minutes and 21 km; GPU geometries and textures plateau (~211 / 117), heap flat, object counts bounded |
 | — | Political narrative distinguishable from fact | Verified (visual) | every slogan, poster, banner, meter and card is labelled fictional/satire; no statistics or quotes in the game |
 
 ## Feature checklist
@@ -59,7 +59,7 @@ Starting point: the target repository was empty, so there was no earlier UP RUN 
 | Input | swipe (fires mid-gesture), keyboard, mouse menus, no page scroll | Tested (auto) | |
 | Robustness | pause on hidden tab, blur and rotation; resize handling; clamp large frame deltas; WebGL missing / context lost message; React error boundary | Tested (auto) except context-loss (code path only) | |
 | Performance | pooling, instancing, merged meshes, auto quality (lowers pixel ratio and particles if slow) | Tested (auto) resource plateau; **Blocked** real-device fps | ~180–330 draw calls during play |
-| Audio | synthesised music per environment and for the chase, SFX, original entrance stinger | **Partial**: implemented, not listened to | headless tests cannot judge sound quality |
+| Audio | synthesised music per environment and for the chase, SFX, original entrance stinger | Tested (auto) for errors; **Partial** for quality | e2e plays every cue/track with no errors; sound quality not listened to |
 | Save | versioned schema, validation per field, v1 migration, storage-full / private-mode fallback | Tested (auto) | |
 
 ## Blocked / not verified here

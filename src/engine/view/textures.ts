@@ -136,7 +136,12 @@ export function sign(text: string, o: SignOpts): THREE.CanvasTexture {
     const top = (h - subH - lines.length * size * 1.02) / 2 + size * 0.55;
     lines.forEach((l, i) => ctx.fillText(l, w / 2, top + i * size * 1.02));
     if (o.sub) {
-      ctx.font = `700 ${Math.floor(subH * 0.7)}px ${FONT}`;
+      let subSize = Math.floor(subH * 0.7);
+      ctx.font = `700 ${subSize}px ${FONT}`;
+      while (subSize > 8 && ctx.measureText(o.sub).width > w - pad * 2) {
+        subSize -= 1;
+        ctx.font = `700 ${subSize}px ${FONT}`;
+      }
       ctx.fillStyle = o.subColor ?? o.fg;
       ctx.fillText(o.sub, w / 2, h - subH * 0.75 - (o.stripe ? h * 0.1 : 0));
     }

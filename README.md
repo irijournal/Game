@@ -118,7 +118,7 @@ Key decisions:
 ```bash
 npm run typecheck
 npm test             # 66 unit + integration tests (~3 min; one physics cross-check is slow)
-npm run build && npm run e2e   # 12 browser scenarios against the production build
+npm run build && npm run e2e   # 13 browser scenarios against the production build
 ```
 
 The suite covers:

@@ -919,8 +919,7 @@ kbd {
 .modal {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
   padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
   background: rgba(27, 20, 64, 0.55);
   overflow-y: auto;
@@ -930,6 +929,7 @@ kbd {
   display: grid;
   gap: 10px;
   width: min(420px, 100%);
+  margin: auto; /* centred when it fits, scrollable when it doesn't */
   text-align: center;
 }
 .modal-card h2 {
@@ -1006,6 +1006,22 @@ kbd {
     top: 45%;
     left: 30px;
     right: 30px;
+  }
+}
+
+@media (max-height: 760px) {
+  .modal-card {
+    gap: 7px;
+  }
+  .modal-card h2 {
+    font-size: 32px;
+  }
+  .results .final-score {
+    font-size: 48px;
+  }
+  .modal-card .btn.huge {
+    min-height: 50px;
+    font-size: 19px;
   }
 }
 

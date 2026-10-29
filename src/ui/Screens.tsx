@@ -342,7 +342,7 @@ export function ShopScreen({ go, refreshPreview }: { go: Go; refreshPreview: () 
       </div>
       <div className="list">
         {tab !== 'route' && tab !== 'chars' && <p className="muted center">Applies to {CHARACTERS[char].name}. Cosmetic only — gameplay is identical.</p>}
-        {tab === 'route' && <p className="muted center">Choose where runs start. Routes then rotate every 750 m.</p>}
+        {tab === 'route' && <p className="muted center">Choose where Political Run starts (Showdown always uses the shared course). Routes rotate every 750 m.</p>}
         {items.map((it) => (
           <ShopRow key={it.id} item={it} owned={save.unlocked.includes(it.id)} equipped={isEquipped(it)} onBuy={() => buy(it.id)} onEquip={() => equip(it)} />
         ))}

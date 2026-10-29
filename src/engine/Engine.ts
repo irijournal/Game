@@ -321,7 +321,8 @@ export class Engine {
       character: opts.character,
       rival,
       seed,
-      startTheme: opts.mode === 'B' ? 'lucknow' : d.startRoute,
+      // Modes B and C always start on the same route so courses are comparable.
+      startTheme: opts.mode === 'A' ? d.startRoute : 'lucknow',
       shortCinematics: d.settings.shortCinematics,
       missions: activeMissions(d),
       discovered: d.discovered,

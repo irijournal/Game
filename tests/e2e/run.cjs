@@ -341,7 +341,30 @@ async function scenario(name, fn) {
     await ctx.close();
   });
 
-  // 12. Soak: long autopilot session; scene resources stay bounded.
+  // 12. Audio: every cue and music track can play without throwing.
+  await scenario('audio: all cues and tracks play without errors', async () => {
+    const { page, errors, ctx } = await newPage(browser);
+    await page.goto(BASE + '?nointro');
+    await ready(page);
+    await page.click('text=START GAME'); // user gesture unlocks audio
+    const r = await page.evaluate(async () => {
+      const a = window.__UPRUN__.engine.audio;
+      const cues = ['coin', 'jump', 'slide', 'lane', 'bump', 'stumble', 'crash', 'horn', 'stinger', 'success', 'mission', 'powerup', 'click', 'poof', 'token', 'bell', 'warn'];
+      for (const c of cues) a.play(c);
+      for (const t of ['menu', 'lucknow', 'heritage', 'modern', 'festival', 'chase', 'menu']) {
+        a.setTrack(t);
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      a.engine(true);
+      await new Promise((r) => setTimeout(r, 200));
+      a.engine(false);
+      return { state: a.ctx ? a.ctx.state : 'none', cues: cues.length };
+    });
+    record('audio: all cues and tracks play without errors', r.state === 'running' && errors.length === 0, `context=${r.state} cues=${r.cues} errors=${errors.length}`);
+    await ctx.close();
+  });
+
+  // 13. Soak: long autopilot session; scene resources stay bounded.
   await scenario('soak: 15 game-minutes keeps resources bounded', async () => {
     const { page, errors, ctx } = await newPage(browser);
     await page.goto(BASE + '?nointro');

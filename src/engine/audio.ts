@@ -90,6 +90,10 @@ export class AudioEngine {
         this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
         const d = this.noise.getChannelData(0);
         for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        // A track chosen before the first gesture had no context to play on.
+        const pending = this.track;
+        this.track = 'none';
+        if (pending !== 'none') this.setTrack(pending);
       }
       if (this.ctx.state === 'suspended') void this.ctx.resume();
     } catch {
