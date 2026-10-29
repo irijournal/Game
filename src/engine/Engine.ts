@@ -93,6 +93,9 @@ export class Engine {
   private disposers: (() => void)[] = [];
   private gameOverSent = false;
   private traffic = new THREE.Group();
+  /** Seconds left of the per-character starting-line moment (menu starts only). */
+  private flourish = 0;
+  private static readonly FLOURISH = 1.5;
   private lastTrack: Track = 'none';
   debugAutopilot = false;
   /** Test hook: when true the RAF loop idles and stepManual() drives time. */
@@ -326,8 +329,9 @@ export class Engine {
     this.emit({ type: 'introDone' });
   }
 
-  startRun(opts: StartOptions): void {
+  startRun(opts: StartOptions, flourish = false): void {
     this.audio.unlock();
+    this.flourish = flourish && !this.settings.shortCinematics ? Engine.FLOURISH : 0;
     this.save.refreshDay();
     this.clearRunViews();
     this.lastOpts = opts;
@@ -354,6 +358,12 @@ export class Engine {
     p.root.rotation.set(0, 0, 0);
     p.root.position.set(LANE_X[1], 0, 0);
     p.setAnim('run', true);
+    if (this.flourish > 0) {
+      // Each character's own introductory gesture before the first step.
+      p.root.rotation.y = Math.PI;
+      p.setAnim(opts.character === 'yogi' ? 'entrance' : 'idle', true);
+      if (opts.character === 'akhilesh') p.animT = 2.95; // lands on the cap adjust
+    }
     this.world.setTheme(this.sim.theme, true);
     this.world.resetBlocks();
     this.mode = 'game';
@@ -361,6 +371,11 @@ export class Engine {
     this.gameOverSent = false;
     this.input.enabled = true;
     this.cameraForRun(true);
+    if (this.flourish > 0) {
+      // Facing the runner (who faces the camera), looking down the road.
+      this.cam.targetPos.set(-1.1, 1.8, 4.3);
+      this.cam.targetLook.set(0, 1.3, 0);
+    }
     this.cam.snap();
     this.setTrack(opts.mode === 'B' ? 'chase' : this.sim.theme);
     this.emit({ type: 'paused', paused: false });
@@ -432,6 +447,7 @@ export class Engine {
     }
     if (this.paused) return;
     this.audio.unlock();
+    if (this.flourish > 0) this.flourish = 0;
     if (a === 'tap') {
       if (this.sim.state === 'CINEMATIC') this.sim.input('skip');
       return;
@@ -517,6 +533,26 @@ export class Engine {
   private tickGame(dt: number): void {
     const sim = this.sim;
     if (!sim) return;
+    if (this.flourish > 0) {
+      this.flourish = Math.max(0, this.flourish - dt);
+      const p = this.player!;
+      const turn = Math.min(1, Math.max(0, (0.45 - this.flourish) / 0.45));
+      p.root.rotation.y = Math.PI * (1 - turn);
+      if (turn > 0) p.setAnim('run');
+      p.update(dt, 4 + turn * 9);
+      this.world.update(dt, sim.d, this.cam.camera, (s) => themeAt(sim.cfg.startTheme, s), (s) => sim.eventAt(s), false);
+      this.syncObstacles(dt, sim);
+      this.pickups.sync(sim.pickups, sim.d, this.time);
+      this.updateShadow(p.root.position.x, 0, 0);
+      this.cam.stiffness = 3;
+      if (turn > 0) this.cameraForRun(false);
+      if (this.flourish === 0) {
+        p.root.rotation.y = 0;
+        this.caption('GO!', undefined, 'go', 700, 0);
+      }
+      this.fx.update(dt, 0);
+      return;
+    }
     if (this.autopilot) for (const a of this.autopilot.decide(sim)) sim.input(a);
     const prevD = sim.d;
     sim.advance(dt);

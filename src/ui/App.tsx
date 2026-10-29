@@ -97,7 +97,7 @@ export function App() {
     const engine = engineRef.current;
     if (!engine) return;
     setEvents([]);
-    engine.startRun(opts);
+    engine.startRun(opts, true);
     setScreen('game');
   }, []);
 

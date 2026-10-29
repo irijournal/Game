@@ -50,6 +50,8 @@ The chase uses exactly the same controls. Swipes fire as soon as your finger has
 - **B — Bulldozer Chase.** A 30-second timed chase challenge featuring Yogi Adityanath and the bulldozer, with three escalating stages. Survive it to complete the challenge.
 - **C — Political Showdown.** Pick Akhilesh, Yogi or (once unlocked) the fictional *Ummeedwar-ji*. Everyone runs the same *course of the day* under identical rules. The results screen shows a local face-off and offers the same course with another character. When Yogi runs, the rival is Akhilesh on a giant cycle.
 
+Starting a run from the menu plays a 1.5 s, skippable starting-line moment with each character's own gesture: Akhilesh adjusts his cap, Yogi makes his entrance and namaste, and Ummeedwar-ji waves. **Retry** skips it and starts instantly.
+
 ## How the signature sequence works
 
 ```
@@ -123,7 +125,7 @@ Key decisions:
 
 ```bash
 npm run typecheck
-npm test             # 66 unit + integration tests (~3 min; one physics cross-check is slow)
+npm test             # 72 unit + integration tests (~3 min; one physics cross-check is slow)
 npm run build && npm run e2e   # 13 browser scenarios against the production build
 ```
 

@@ -42,6 +42,7 @@ Starting point: the target repository was empty, so there was no earlier UP RUN 
 | Characters | Akhilesh: red cap, white kurta-pajama, run/jump/slide/stumble/recover/victory/sad, expressions | Verified (visual) | procedural rig, one canonical model; cap sized to read from behind |
 | | Yogi: saffron robes, shawl, earrings, entrance, special victory (namaste → blessing), ride pose | Verified (visual) | |
 | | Character system extensible (preview, description, unlock, select, shared animation) | Tested (auto) / Verified | third, fictional character Ummeedwar-ji included |
+| | Per-character introductory animation at the start of a run (skippable; skipped on Retry) | Verified (visual) | Akhilesh cap adjust, Yogi entrance + namaste, Ummeedwar-ji wave |
 | | Outfits, run styles and trails (cosmetic) | Verified (visual) | |
 | Opening | Aerial city → character adjusts cap → runs → title, subtitle, Start, tutorial; skippable; shown once | Tested (auto) skip / Verified (visual) | replay from Settings |
 | World | 3 lanes, endless modular street, 4 themed environments with palette, music, obstacle mix | Verified (visual) | Lucknow-inspired gateway/domes/clock-tower silhouettes; all fictionalised |

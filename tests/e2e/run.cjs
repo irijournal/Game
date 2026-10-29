@@ -77,7 +77,8 @@ async function scenario(name, fn) {
     await page.click('text=Skip intro');
     await page.waitForSelector('text=Uttar Pradesh: The Great Political Run', { timeout: 5000 });
     await page.click('text=▶ START');
-    await page.waitForTimeout(1500);
+    // A short per-character starting-line moment plays first.
+    await page.waitForFunction(() => window.__UPRUN__.info().d > 5, null, { timeout: 15000 });
     const i = await info(page);
     const ch = await sim(page, () => window.__UPRUN__.engine.sim.cfg.character);
     await page.screenshot({ path: path.join(SHOTS, '01_run.png') });
@@ -267,7 +268,7 @@ async function scenario(name, fn) {
     await page.tap('text=START GAME');
     await page.evaluate(() => window.__UPRUN__.autopilot(true));
     await page.tap('text=Run ▸');
-    await page.waitForTimeout(1500);
+    await page.waitForFunction(() => window.__UPRUN__.info().d > 8, null, { timeout: 20000 });
     const a = await info(page);
     await page.setViewportSize({ width: 844, height: 390 });
     await page.evaluate(() => window.dispatchEvent(new Event('orientationchange')));
@@ -290,7 +291,8 @@ async function scenario(name, fn) {
     await ready(page);
     await page.click('text=START GAME');
     await page.click('text=Run ▸');
-    await page.waitForTimeout(800);
+    await page.evaluate(() => window.__UPRUN__.clearRoad(400));
+    await page.waitForFunction(() => window.__UPRUN__.info().d > 8, null, { timeout: 20000 });
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
       document.dispatchEvent(new Event('visibilitychange'));
@@ -305,7 +307,7 @@ async function scenario(name, fn) {
     await page.click('text=▶ Resume');
     await page.waitForTimeout(150);
     const c = await info(page);
-    const ok = a.paused && b.d === a.d && !c.paused && c.d - b.d < 10 && errors.length === 0;
+    const ok = a.paused && a.d > 8 && b.d === a.d && !c.paused && c.d - b.d < 10 && errors.length === 0;
     record('tab hidden pauses; no time jump on return', ok, `paused=${a.paused} frozen=${b.d === a.d} jumpAfterResume=${c.d - b.d}m errors=${errors.length}`);
     await ctx.close();
   });
