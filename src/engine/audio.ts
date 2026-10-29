@@ -1,4 +1,5 @@
 import { Rng } from '../sim/rng';
+import type { ThemeId } from '../sim/types';
 
 export type Sfx =
   | 'coin'
@@ -17,9 +18,12 @@ export type Sfx =
   | 'poof'
   | 'token'
   | 'bell'
-  | 'warn';
+  | 'warn'
+  | 'correct'
+  | 'wrong'
+  | 'fanfare';
 
-export type Track = 'none' | 'menu' | 'lucknow' | 'heritage' | 'modern' | 'festival' | 'chase';
+export type Track = 'none' | 'menu' | ThemeId | 'chase' | 'debate';
 
 interface TrackDef {
   bpm: number;
@@ -39,12 +43,17 @@ const SCALES = {
 };
 
 const TRACKS: Record<Exclude<Track, 'none'>, TrackDef> = {
-  menu: { bpm: 96, root: 57, scale: SCALES.yaman, drums: 'D..n..n.D.n.n...', bass: [0, 4, 3, 4], density: 0.45, drone: true },
-  lucknow: { bpm: 116, root: 57, scale: SCALES.kafi, drums: 'D.nnD.n.D.nnD.nc', bass: [0, 0, 3, 4], density: 0.6, drone: true },
-  heritage: { bpm: 92, root: 55, scale: SCALES.bhairav, drums: 'D...n.n.D...n.n.', bass: [0, 3, 4, 0], density: 0.4, drone: true },
-  modern: { bpm: 124, root: 60, scale: SCALES.pent, drums: 'D.n.c.n.D.n.c.nn', bass: [0, 2, 3, 1], density: 0.65, drone: false },
-  festival: { bpm: 132, root: 59, scale: SCALES.kafi, drums: 'DnnDc.nnDnnDc.nc', bass: [0, 3, 4, 3], density: 0.7, drone: true },
+  menu: { bpm: 100, root: 57, scale: SCALES.yaman, drums: 'D..n..n.D.n.n.c.', bass: [0, 4, 3, 4], density: 0.45, drone: true },
+  expressway: { bpm: 128, root: 60, scale: SCALES.pent, drums: 'D.n.D.ncD.n.D.nc', bass: [0, 2, 3, 4], density: 0.6, drone: false },
+  ayodhya: { bpm: 92, root: 55, scale: SCALES.bhairav, drums: 'D...n.n.D...n.nc', bass: [0, 3, 4, 0], density: 0.42, drone: true },
+  airport: { bpm: 120, root: 62, scale: SCALES.yaman, drums: 'D.n.c.n.D.n.c.n.', bass: [0, 4, 2, 4], density: 0.55, drone: false },
+  kisan: { bpm: 108, root: 57, scale: SCALES.kafi, drums: 'D..nD.n.D..nD.nn', bass: [0, 0, 4, 3], density: 0.5, drone: true },
+  jankalyan: { bpm: 112, root: 59, scale: SCALES.kafi, drums: 'D.nnD.n.D.nnD.nc', bass: [0, 3, 4, 3], density: 0.55, drone: true },
+  lawandorder: { bpm: 118, root: 57, scale: SCALES.kafi, drums: 'D.nnD.n.D.nnD.nc', bass: [0, 0, 3, 4], density: 0.6, drone: true },
+  startup: { bpm: 126, root: 60, scale: SCALES.pent, drums: 'D.n.c.n.D.n.c.nn', bass: [0, 2, 3, 1], density: 0.65, drone: false },
+  viksit: { bpm: 134, root: 59, scale: SCALES.yaman, drums: 'DnnDc.nnDnnDc.nc', bass: [0, 3, 4, 3], density: 0.7, drone: true },
   chase: { bpm: 152, root: 52, scale: SCALES.bhairav, drums: 'D.nDD.nnD.nDDcnn', bass: [0, 0, 1, 0], density: 0.75, drone: false },
+  debate: { bpm: 84, root: 57, scale: SCALES.kafi, drums: 'D...n...D...n.c.', bass: [0, 4, 0, 3], density: 0.3, drone: true },
 };
 
 const midi = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
@@ -387,6 +396,21 @@ export class AudioEngine {
       case 'warn':
         this.tone('square', 880, 880, 0.08, 0.06);
         this.tone('square', 880, 880, 0.08, 0.06, 0.16);
+        break;
+      case 'correct':
+        [0, 4, 7].forEach((iv, i) => this.tone('triangle', midi(76 + iv), midi(76 + iv), 0.16, 0.12, i * 0.07));
+        break;
+      case 'wrong':
+        this.tone('square', 330, 300, 0.16, 0.07);
+        this.tone('square', 262, 230, 0.3, 0.07, 0.17);
+        break;
+      case 'fanfare':
+        // Original rising brass-style fanfare.
+        [0, 0.16, 0.32, 0.56].forEach((at, i) => {
+          const base = [60, 64, 67, 72][i];
+          for (const iv of [0, 7, 12]) this.tone('sawtooth', midi(base + iv), midi(base + iv), i === 3 ? 0.9 : 0.14, 0.045, at);
+          this.tabla(now + at, i % 2 === 0, this.sfxBus);
+        });
         break;
     }
   }

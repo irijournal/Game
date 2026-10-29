@@ -46,6 +46,8 @@ export const STUMBLE_TIMESCALE = 0.3;
 export const CINEMATIC_FULL = 4.0;
 export const CINEMATIC_SHORT = 1.6;
 export const EVENT_PENDING_MAX = 2.5;
+/** Rivalry Mode: the "Political Challenge Ahead!" warning shows at least this long before the stumble. */
+export const CHALLENGE_WARNING = 1.0;
 export const SUCCESS_TIME = 1.8;
 export const FAILURE_TIME = 1.9;
 export const GUARD_RECHARGE = 10;
@@ -61,3 +63,7 @@ export const MAGNET_TIME = 8;
 export const VIKAS_TIME = 5;
 export const SPEED_RUN_TIME = 8;
 export const SPEED_RUN_WARNING = 2.5;
+
+/** Development Race: course length (m) and the rival's pace as a fraction of base speed. */
+export const RACE_LENGTH = 1500;
+export const RACE_PACE = 1.03;

@@ -12,7 +12,8 @@ export type AnimName =
   | 'ride'
   | 'pedal'
   | 'fall'
-  | 'leap';
+  | 'leap'
+  | 'talk';
 
 export type Expression = 'neutral' | 'happy' | 'shock' | 'determined' | 'sad' | 'smug';
 
@@ -58,6 +59,7 @@ const ANIM_EXPRESSION: Record<AnimName, Expression> = {
   pedal: 'determined',
   fall: 'shock',
   leap: 'happy',
+  talk: 'happy',
 };
 
 const smooth = (t: number) => {
@@ -153,9 +155,11 @@ export class CharacterRig {
     if (e !== this.expression) this.expression = e;
     const f = this.face;
     if (!f) return;
-    f.smile.visible = e === 'happy' || e === 'smug' || e === 'neutral' || e === 'determined';
-    f.frown.visible = e === 'sad';
-    f.open.visible = e === 'shock';
+    // Talking alternates an open mouth with the expression's own mouth.
+    const talking = this.anim === 'talk' && Math.sin(this.animT * 17) > -0.1 && this.animT % 2.4 < 1.9;
+    f.smile.visible = !talking && (e === 'happy' || e === 'smug' || e === 'neutral' || e === 'determined');
+    f.frown.visible = !talking && e === 'sad';
+    f.open.visible = talking || e === 'shock';
     f.smile.scale.set(e === 'happy' ? 1.25 : e === 'determined' ? 0.8 : 1, e === 'determined' ? 0.6 : 1, 1);
     let browY = 0;
     let browZ = 0;
@@ -391,6 +395,17 @@ export class CharacterRig {
         o.shR = [2.4, 0, 0.6];
         o.spine = [0.25, 0, 0];
         o.head = [0.2, 0, 0];
+        break;
+      }
+      case 'talk': {
+        // Debate gestures: an emphatic hand, then an open-palm sweep.
+        const beat = Math.sin(t * 3.2);
+        o.spine = [0.05, Math.sin(t * 0.8) * 0.15, 0];
+        o.head = [0.05 + Math.abs(Math.sin(t * 4.5)) * 0.08, Math.sin(t * 0.9) * 0.2, 0];
+        o.shR = [1.35 + beat * 0.35, 0, 0.35 + Math.max(0, -beat) * 0.5];
+        o.elR = [1.35 - beat * 0.3, 0, 0];
+        o.shL = [0.35 + Math.max(0, beat) * 0.6, 0, -0.35];
+        o.elL = [0.9, 0, 0];
         break;
       }
       case 'idle':

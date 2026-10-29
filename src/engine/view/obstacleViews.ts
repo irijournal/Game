@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OBSTACLES } from '../../sim/obstacles';
 import type { ObstacleKind } from '../../sim/types';
 import { ROAD_HALF_WIDTH } from '../../sim/constants';
-import { box, cone, cyl, lambert, mergeStatic, mesh, plane, toon, basic } from './materials';
-import { blobShadow, bunting, sign, stripes } from './textures';
+import { box, cone, cyl, lambert, mergeStatic, mesh, plane, sphere, toon, basic } from './materials';
+import { blobShadow, bunting, canvasTexture, FONT, sign, stripes } from './textures';
 import { buildBus, buildMediaVan, buildTruck } from './vehicles';
 
 export interface ObstacleView {
@@ -14,12 +14,35 @@ export interface ObstacleView {
 }
 
 const BANNERS = [
-  ['MEGA RALLY TODAY!', '#ff8c1a', '#ffffff'],
-  ['PROMISES AHEAD!', '#1f8a4c', '#ffffff'],
-  ['ROAD SHOW →', '#2d6cdf', '#ffffff'],
-  ['JANATA KI JAI!', '#e8262c', '#fff3c4'],
-  ['VIKAS LOADING… 99%', '#ffd23a', '#1a1a1a'],
+  ['UP’S FUTURE IS ON THE MOVE!', '#ff8c1a', '#ffffff'],
+  ['DEVELOPMENT KA SCOREBOARD KHOLO!', '#1f8a4c', '#ffffff'],
+  ['HAR CHALLENGE KA JAWAB — PERFORMANCE!', '#ff8c1a', '#fff3c4'],
+  ['RACE FOR ROADS, JOBS & SERVICES', '#2d6cdf', '#ffffff'],
+  ['MEGA RALLY TODAY!', '#ffffff', '#c25400'],
 ] as const;
+
+const MARIGOLD = [0xff9a1a, 0xffc21a, 0xff7a00];
+
+function wheelX(r: number, w: number, x: number, y: number, z: number, color = 0x1a1a1a): THREE.Mesh {
+  const m = mesh(cyl(r, r, w, 14), toon(color), x, y, z);
+  m.rotation.z = Math.PI / 2;
+  return m;
+}
+
+function garland(root: THREE.Group, x0: number, x1: number, y: number, z: number, sag = 0.25, n = 11): void {
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    root.add(mesh(sphere(0.085, 6, 5), toon(MARIGOLD[i % 3]), x0 + (x1 - x0) * t, y - Math.sin(t * Math.PI) * sag, z));
+  }
+}
+
+function gapHole(root: THREE.Group, depth: number, zc: number, floor: number, wallColor: number): void {
+  const w = 2.05;
+  const hole = mesh(plane(w, depth), basic(floor), 0, 0.013, zc);
+  hole.rotation.x = -Math.PI / 2;
+  root.add(hole);
+  root.add(mesh(box(w, 0.6, 0.05), toon(wallColor), 0, -0.29, -depth + 0.03));
+}
 
 
 function shadowUnder(w: number, d: number): THREE.Mesh {
@@ -153,7 +176,7 @@ function build(kind: ObstacleKind, variant: number): ObstacleView {
       // Per-lane hanging element; the gantry above is a separate view.
       if (kind === 'bannerArch') {
         const [text, bg, fg] = BANNERS[variant % BANNERS.length];
-        const m = lambert(0xffffff, { map: sign(text, { bg, fg, border: '#ffffff', w: 512, h: 300, sub: 'fictional campaign banner', subColor: fg }), side: THREE.DoubleSide });
+        const m = lambert(0xffffff, { map: sign(text, { bg, fg, border: '#ffd23a', w: 512, h: 300, sub: 'UP RUN game banner', subColor: fg }), side: THREE.DoubleSide });
         root.add(mesh(box(1.9, 1.15, 0.06), m, 0, 1.27 + 0.575, zc));
         root.add(mesh(cyl(0.035, 0.035, 2.0), toon(0x8a5a2b), 0, 2.44, zc)).rotation.z = Math.PI / 2;
         for (const x of [-0.85, 0.85]) root.add(mesh(cyl(0.012, 0.012, 1.4), toon(0x333333), x, 3.1, zc));
@@ -186,7 +209,7 @@ function build(kind: ObstacleKind, variant: number): ObstacleView {
       break;
     }
     case 'constructionWall': {
-      const panel = lambert(0xffffff, { map: sign('DEVELOPMENT ZONE', { bg: '#1f5fbf', fg: '#ffffff', sub: 'WORK IN PROGRESS SINCE FOREVER', subColor: '#ffd400', w: 512, h: 512, stripe: true }) });
+      const panel = lambert(0xffffff, { map: sign('DEVELOPMENT ZONE', { bg: '#1f5fbf', fg: '#ffffff', sub: 'WORK IN PROGRESS • FICTIONAL SIGN', subColor: '#ffd400', w: 512, h: 512, stripe: true }) });
       root.add(mesh(box(1.96, 2.6, 0.3), panel, 0, 1.3, zc));
       root.add(mesh(cone(0.2, 0.7, 12), toon(0xff6a00), 0.7, 0.35, 0.3));
       root.add(shadowUnder(2.4, 1.0));
@@ -231,6 +254,275 @@ function build(kind: ObstacleKind, variant: number): ObstacleView {
       b.position.z = zc;
       root.add(b);
       root.add(shadowUnder(2.6, 6.6));
+      break;
+    }
+
+    // ---------------------------------------------------- level obstacles
+    case 'flowerCart': {
+      root.add(mesh(box(1.7, 0.45, 0.9), toon(0x8a5a2b), 0, 0.55, zc));
+      root.add(mesh(box(1.76, 0.08, 0.96), toon(0x6a4020), 0, 0.8, zc));
+      for (const x of [-0.7, 0.7]) root.add(wheelX(0.3, 0.08, x, 0.3, zc, 0x5a3a1a));
+      for (let i = 0; i < 14; i++) root.add(mesh(sphere(0.16, 7, 6), toon(MARIGOLD[i % 3]), -0.65 + (i % 7) * 0.22, 0.88 + Math.floor(i / 7) * 0.1, zc - 0.2 + Math.floor(i / 7) * 0.35));
+      root.add(shadowUnder(2.0, 1.3));
+      break;
+    }
+    case 'luggageCart': {
+      for (const x of [-0.5, 0.5]) {
+        root.add(mesh(box(0.85, 0.06, 1.1), toon(0x9aa3ad), x, 0.3, zc));
+        root.add(mesh(box(0.85, 0.7, 0.05), toon(0x7a838d), x, 0.62, zc - 0.55));
+        for (const dz of [-0.4, 0.4]) root.add(wheelX(0.12, 0.06, x - 0.35, 0.12, zc + dz), wheelX(0.12, 0.06, x + 0.35, 0.12, zc + dz));
+      }
+      const bags = [0x2d6cdf, 0xe8262c, 0x1f8a4c, 0x333333, 0xffa31a];
+      bags.forEach((c, i) => root.add(mesh(box(0.6, 0.32, 0.45), toon(c), -0.6 + (i % 3) * 0.6, 0.5 + Math.floor(i / 3) * 0.34, zc + (i % 2 ? 0.2 : -0.15))));
+      root.add(shadowUnder(2.1, 1.5));
+      break;
+    }
+    case 'brokenPipe': {
+      const pipe = mesh(cyl(0.34, 0.34, 1.9, 14), toon(0x4a6a8a), 0, 0.36, zc);
+      pipe.rotation.z = Math.PI / 2;
+      root.add(pipe);
+      for (const x of [-0.6, 0.6]) {
+        const band = mesh(cyl(0.37, 0.37, 0.12, 14), lambert(0xffffff, { map: stripes('yb', '#ffd400', '#111') }), x, 0.36, zc);
+        band.rotation.z = Math.PI / 2;
+        root.add(band);
+      }
+      const spray = mesh(cone(0.25, 0.6, 10), basic(0x8fd0ff, { transparent: true, opacity: 0.7 }), 0.15, 0.95, zc);
+      root.add(spray);
+      root.add(shadowUnder(2.2, 0.9));
+      break;
+    }
+    case 'hayBale': {
+      for (const x of [-0.48, 0.48]) {
+        const bale = mesh(cyl(0.48, 0.48, 0.9, 14), toon(0xe8c45a), x, 0.48, zc);
+        bale.rotation.x = Math.PI / 2;
+        root.add(bale);
+        const face = mesh(cyl(0.4, 0.4, 0.92, 14), toon(0xd4a83a), x, 0.48, zc);
+        face.rotation.x = Math.PI / 2;
+        root.add(face);
+      }
+      root.add(shadowUnder(2.1, 1.3));
+      break;
+    }
+    case 'queueBarrier': {
+      for (const x of [-0.85, 0, 0.85]) {
+        root.add(mesh(cyl(0.04, 0.04, 0.95, 8), toon(0xc0c6cc), x, 0.48, zc));
+        root.add(mesh(cyl(0.16, 0.18, 0.05, 12), toon(0x555555), x, 0.03, zc));
+      }
+      root.add(mesh(box(1.7, 0.08, 0.03), lambert(0xffffff, { map: stripes('rw', '#e8262c', '#ffffff') }), 0, 0.88, zc));
+      root.add(mesh(box(0.7, 0.32, 0.03), lambert(0xffffff, { map: sign('QUEUE HERE', { bg: '#1f8a4c', fg: '#fff', w: 256, h: 110 }) }), 0.42, 0.62, zc + 0.03));
+      root.add(shadowUnder(2.0, 0.8));
+      break;
+    }
+    case 'delaySign': {
+      const board = lambert(0xffffff, { map: sign('DELAYED', { bg: '#e8262c', fg: '#fff', border: '#fff', sub: 'fictional sign', subColor: '#ffe0a0', w: 512, h: 300 }) });
+      for (const sd of [-1, 1]) {
+        const b = mesh(box(1.6, 1.0, 0.05), board, 0, 0.5, zc + sd * 0.2);
+        b.rotation.x = sd * 0.33;
+        if (sd < 0) b.rotation.y = Math.PI;
+        root.add(b);
+      }
+      root.add(shadowUnder(2.0, 1.1));
+      break;
+    }
+    case 'pallet': {
+      root.add(mesh(box(1.7, 0.15, 1.0), toon(0xb8894a), 0, 0.08, zc));
+      for (let i = 0; i < 5; i++) root.add(mesh(box(0.55, 0.38, 0.45), toon(0xc9a06a), -0.58 + (i % 3) * 0.58, 0.35 + Math.floor(i / 3) * 0.38, zc + (i % 2 ? 0.2 : -0.2)));
+      root.add(mesh(box(1.72, 0.04, 1.02), toon(0x2d6cdf), 0, 0.6, zc));
+      root.add(shadowUnder(2.0, 1.3));
+      break;
+    }
+    case 'droneCrate': {
+      root.add(mesh(box(1.5, 0.7, 0.75), toon(0x2fa8a0), 0, 0.35, zc));
+      root.add(mesh(box(1.52, 0.1, 0.77), toon(0xffffff), 0, 0.55, zc));
+      root.add(mesh(box(0.5, 0.12, 0.5), toon(0x30304a), 0, 0.78, zc));
+      for (const [x, z] of [
+        [-0.4, -0.3],
+        [0.4, -0.3],
+        [-0.4, 0.3],
+        [0.4, 0.3],
+      ]) {
+        root.add(mesh(box(0.06, 0.04, 0.06), toon(0x30304a), x, 0.82, zc + z));
+        root.add(mesh(cyl(0.18, 0.18, 0.02, 12), basic(0x9ad8ff, { transparent: true, opacity: 0.6 }), x, 0.9, zc + z));
+      }
+      root.add(shadowUnder(1.9, 1.1));
+      break;
+    }
+    case 'canalGap': {
+      gapHole(root, def.depth, zc, 0x1d4a6a, 0x4a3a2a);
+      const water = mesh(plane(2.0, def.depth - 0.2), basic(0x3a8ac0), 0, -0.15, zc);
+      water.rotation.x = -Math.PI / 2;
+      root.add(water);
+      for (const z of [0.1, -def.depth - 0.1]) root.add(mesh(box(2.2, 0.08, 0.2), toon(0x6ab84a), 0, 0.03, z));
+      root.add(mesh(cone(0.16, 0.5, 10), toon(0xff6a00), -1.0, 0.25, 0.35), mesh(cone(0.16, 0.5, 10), toon(0xff6a00), 1.0, 0.25, 0.35));
+      break;
+    }
+    case 'openDrain': {
+      gapHole(root, def.depth, zc, 0x1a1c18, 0x6a6a6a);
+      const sludge = mesh(plane(2.0, def.depth - 0.2), basic(0x3a4a2a), 0, -0.2, zc);
+      sludge.rotation.x = -Math.PI / 2;
+      root.add(sludge);
+      const warn = lambert(0xffffff, { map: stripes('ob', '#ff8c00', '#111') });
+      for (const z of [0.07, -def.depth - 0.07]) root.add(mesh(box(2.15, 0.08, 0.16), warn, 0, 0.04, z));
+      root.add(mesh(cone(0.16, 0.5, 10), toon(0xff6a00), 1.0, 0.25, 0.35));
+      break;
+    }
+    case 'toranaArch': {
+      const panel = lambert(0xffffff, { map: sign('SWAGATAM', { bg: '#ff8c1a', fg: '#fff', border: '#ffd23a', sub: 'festival welcome', subColor: '#fff3c4', w: 512, h: 220 }), side: THREE.DoubleSide });
+      root.add(mesh(box(1.9, 0.75, 0.06), panel, 0, 1.75, zc));
+      garland(root, -0.95, 0.95, 2.25, zc + 0.05, 0.08);
+      for (let i = 0; i < 9; i++) {
+        const leaf = mesh(cone(0.07, 0.3, 4), toon(0x2f9a4a), -0.88 + i * 0.22, 1.27 + 0.15, zc + 0.04);
+        leaf.rotation.z = Math.PI;
+        root.add(leaf);
+      }
+      for (const x of [-0.85, 0.85]) root.add(mesh(cyl(0.012, 0.012, 1.4), toon(0x333333), x, 2.8, zc));
+      root.add(shadowUnder(2.0, 0.8));
+      break;
+    }
+    case 'flightBoard': {
+      const face = lambert(0xffffff, {
+        map: canvasTexture('flightBoard', 512, 256, (c) => {
+          c.fillStyle = '#10141c';
+          c.fillRect(0, 0, 512, 256);
+          c.fillStyle = '#ffd23a';
+          c.font = `bold 34px ${FONT}`;
+          c.fillText('DEPARTURES', 20, 44);
+          c.font = `bold 28px ${FONT}`;
+          const rows = [['09:40', 'LUCKNOW', 'ON TIME'], ['10:15', 'VARANASI', 'BOARDING'], ['11:05', 'AYODHYA', 'ON TIME'], ['11:50', 'GORAKHPUR', 'GATE 3']];
+          rows.forEach((r, i) => {
+            c.fillStyle = '#ffffff';
+            c.fillText(r[0], 20, 92 + i * 44);
+            c.fillText(r[1], 130, 92 + i * 44);
+            c.fillStyle = i === 1 ? '#7aff9a' : '#ffd23a';
+            c.fillText(r[2], 360, 92 + i * 44);
+          });
+        }),
+      });
+      root.add(mesh(box(1.9, 0.95, 0.12), face, 0, 1.27 + 0.48, zc));
+      root.add(mesh(box(1.96, 0.08, 0.16), toon(0x30343c), 0, 2.27, zc));
+      for (const x of [-0.7, 0.7]) root.add(mesh(cyl(0.025, 0.025, 1.4), toon(0x777777), x, 2.95, zc));
+      root.add(shadowUnder(2.0, 0.8));
+      break;
+    }
+    case 'conveyor': {
+      const belt = lambert(0xffffff, { map: stripes('belt', '#2a2a2a', '#444444', 10) });
+      root.add(mesh(box(2.0, 0.28, 0.8), belt, 0, 1.42, zc));
+      root.add(mesh(box(2.04, 0.08, 0.86), toon(0xffc300), 0, 1.3, zc));
+      for (let i = 0; i < 3; i++) root.add(mesh(box(0.45, 0.4, 0.5), toon(0xc9a06a), -0.65 + i * 0.65, 1.76, zc));
+      for (const x of [-0.85, 0.85]) root.add(mesh(cyl(0.03, 0.03, 1.6), toon(0x777777), x, 2.6, zc));
+      root.add(shadowUnder(2.0, 1.0));
+      break;
+    }
+    case 'holoGate': {
+      root.add(mesh(box(1.9, 0.9, 0.04), basic(0x6af0ff, { transparent: true, opacity: 0.45 }), 0, 1.72, zc));
+      root.add(mesh(box(1.96, 0.06, 0.08), basic(0x7af7ff), 0, 1.28, zc));
+      root.add(mesh(box(1.96, 0.06, 0.08), basic(0x7af7ff), 0, 2.18, zc));
+      root.add(mesh(box(1.2, 0.3, 0.05), lambert(0xffffff, { map: sign('SMART GATE', { bg: '#0a2a40', fg: '#7af7ff', w: 256, h: 80 }) }), 0, 1.72, zc + 0.03));
+      for (const x of [-0.85, 0.85]) root.add(mesh(cyl(0.02, 0.02, 1.4), toon(0x777777), x, 2.9, zc));
+      root.add(shadowUnder(2.0, 0.8));
+      break;
+    }
+    case 'chariotFloat': {
+      root.add(mesh(box(1.9, 0.9, def.depth - 0.2), toon(0x8a3a1a), 0, 0.75, zc));
+      root.add(mesh(box(1.96, 0.12, def.depth - 0.1), toon(0xffc300), 0, 1.25, zc));
+      for (const z of [zc - 1.2, zc + 1.2]) for (const x of [-0.95, 0.95]) root.add(wheelX(0.42, 0.14, x, 0.42, z, 0x6a3a1a));
+      for (const [x, z] of [
+        [-0.8, zc - 1.6],
+        [0.8, zc - 1.6],
+        [-0.8, zc + 1.6],
+        [0.8, zc + 1.6],
+      ])
+        root.add(mesh(cyl(0.06, 0.06, 1.3, 8), toon(0xffc300), x, 1.95, z));
+      root.add(mesh(cone(1.25, 1.0, 4), toon(0xff7a00), 0, 2.85, zc)).rotation.y = Math.PI / 4;
+      garland(root, -0.95, 0.95, 2.4, zc + def.depth / 2 - 0.05, 0.3);
+      garland(root, -0.95, 0.95, 1.6, zc + def.depth / 2 - 0.05, 0.15);
+      root.add(shadowUnder(2.6, def.depth + 0.8));
+      break;
+    }
+    case 'baggageTug': {
+      root.add(mesh(box(1.8, 0.6, def.depth - 0.4), toon(0xf5b800), 0, 0.55, zc));
+      for (const z of [zc - 1.5, zc + 1.5]) for (const x of [-0.85, 0.85]) root.add(wheelX(0.3, 0.2, x, 0.3, z));
+      // Full-width cab at the front so it reads as a wall.
+      root.add(mesh(box(1.84, 1.5, 1.2), toon(0xf5b800), 0, 1.6, -0.75));
+      root.add(mesh(box(1.5, 0.6, 0.05), toon(0x2b3e52, { emissive: 0x0a1420 }), 0, 1.95, -0.13));
+      root.add(mesh(box(1.9, 0.14, 1.3), toon(0x333333), 0, 2.42, -0.75));
+      root.add(mesh(cyl(0.12, 0.12, 0.18, 10), toon(0xff9900, { emissive: 0xff6600 }), 0.6, 2.58, -0.75));
+      const ramp = mesh(box(1.1, 0.15, 3.4), lambert(0xffffff, { map: stripes('belt', '#2a2a2a', '#444444', 10) }), 0, 2.0, zc - 0.4);
+      ramp.rotation.x = 0.3;
+      root.add(ramp);
+      root.add(mesh(box(0.5, 0.35, 0.45), toon(0x2d6cdf), 0, 2.45, zc - 1.4));
+      root.add(shadowUnder(2.6, def.depth + 0.6));
+      break;
+    }
+    case 'crateStack': {
+      const crate = toon(0xb8894a);
+      for (let i = 0; i < 3; i++) {
+        root.add(mesh(box(1.85 - i * 0.2, 0.86, 1.3), crate, Math.sin(i) * 0.05, 0.43 + i * 0.88, zc));
+        root.add(mesh(box(1.87 - i * 0.2, 0.1, 1.32), toon(0x8a5a2b), Math.sin(i) * 0.05, 0.43 + i * 0.88, zc));
+      }
+      root.add(mesh(plane(0.9, 0.4), lambert(0xffffff, { map: sign('FRAGILE', { bg: '#fff', fg: '#c81e1e', w: 256, h: 110 }) }), 0, 0.5, 0.01));
+      root.add(shadowUnder(2.4, 1.8));
+      break;
+    }
+    case 'tractor': {
+      // Parked facing away: the runner meets the tall hay trailer first, so
+      // it reads as a wall from the gameplay camera.
+      root.add(mesh(box(1.9, 0.5, 1.5), toon(0x2f7a3a), 0, 0.75, -0.8));
+      root.add(mesh(box(1.8, 1.6, 1.4), toon(0xe8c45a), 0, 1.85, -0.8));
+      for (const x of [-0.95, 0.95]) root.add(wheelX(0.38, 0.16, x, 0.38, -0.8));
+      root.add(mesh(box(0.1, 0.1, 0.5), toon(0x333333), 0, 0.55, -1.75));
+      const red = toon(0xd0302a);
+      root.add(mesh(box(1.0, 0.9, 0.9), red, 0, 1.25, -2.4));
+      root.add(mesh(box(0.9, 0.7, 1.0), red, 0, 1.0, -3.0));
+      root.add(mesh(box(0.9, 0.06, 0.9), toon(0x333333), 0, 2.15, -2.4));
+      for (const x of [-0.85, 0.85]) {
+        root.add(wheelX(0.72, 0.36, x, 0.72, -2.3));
+        root.add(wheelX(0.4, 0.22, x * 0.85, 0.4, -3.3));
+      }
+      root.add(shadowUnder(2.6, def.depth + 0.8));
+      break;
+    }
+    case 'unfinishedSign': {
+      const panel = lambert(0xffffff, { map: sign('UNFINISHED PROJECT', { bg: '#7a7f88', fg: '#ffffff', sub: 'FICTIONAL BOARD • DEVELOPMENT BLOCKED', subColor: '#ffd400', w: 512, h: 512, stripe: true }) });
+      root.add(mesh(box(1.94, 2.2, 0.15), panel, 0, 1.65, zc));
+      for (const x of [-0.85, 0.85]) root.add(mesh(box(0.12, 2.8, 0.12), toon(0x5a5f66), x, 1.4, zc - 0.12));
+      root.add(mesh(cone(0.2, 0.7, 12), toon(0xff6a00), -0.7, 0.35, 0.3));
+      root.add(shadowUnder(2.4, 1.0));
+      break;
+    }
+    case 'forklift': {
+      // Mast and a full load at the front, body behind.
+      for (const x of [-0.45, 0.45]) root.add(mesh(box(0.12, 2.8, 0.12), toon(0x444444), x, 1.4, -0.9));
+      root.add(mesh(box(1.1, 0.12, 0.12), toon(0x444444), 0, 2.7, -0.9));
+      root.add(mesh(box(1.6, 0.12, 0.8), toon(0xb8894a), 0, 0.12, -0.42));
+      root.add(mesh(box(1.5, 0.85, 0.75), toon(0xc9a06a), 0, 0.62, -0.42));
+      root.add(mesh(box(1.3, 0.75, 0.7), toon(0xb8894a), 0, 1.42, -0.42));
+      root.add(mesh(plane(0.8, 0.3), lambert(0xffffff, { map: sign('FRAGILE', { bg: '#fff', fg: '#c81e1e', w: 256, h: 110 }) }), 0, 0.7, -0.03));
+      const y = toon(0xffb300);
+      root.add(mesh(box(1.3, 0.8, 1.5), y, 0, 0.75, zc - 0.4));
+      root.add(mesh(box(1.2, 0.08, 1.1), toon(0x333333), 0, 2.2, zc - 0.4));
+      for (const [x, z] of [
+        [-0.55, 0.15],
+        [0.55, 0.15],
+        [-0.55, -0.9],
+        [0.55, -0.9],
+      ])
+        root.add(mesh(box(0.06, 1.1, 0.06), toon(0x333333), x, 1.65, zc - 0.4 + z * 0.5));
+      for (const z of [-1.2, -2.2]) for (const x of [-0.65, 0.65]) root.add(wheelX(0.3, 0.2, x, 0.3, z));
+      root.add(shadowUnder(2.4, def.depth + 0.6));
+      break;
+    }
+    case 'maglevPod': {
+      const white = toon(0xf6f8fa);
+      root.add(mesh(box(1.9, 2.2, def.depth - 1.4), white, 0, 1.6, zc - 0.5));
+      const nose = mesh(sphere(1.1, 16, 10), white, 0, 1.6, zc + def.depth / 2 - 1.2);
+      nose.scale.set(0.86, 1.0, 1.1);
+      root.add(nose);
+      root.add(mesh(box(1.92, 0.5, def.depth - 1.4), toon(0x2b3e52, { emissive: 0x0a1420 }), 0, 2.0, zc - 0.5));
+      root.add(mesh(box(1.94, 0.12, def.depth - 1.2), basic(0x7af7ff), 0, 1.2, zc - 0.4));
+      root.add(mesh(box(1.94, 0.08, def.depth - 1.2), basic(0xffa040), 0, 2.55, zc - 0.4));
+      root.add(mesh(box(1.4, 0.4, def.depth), toon(0x30304a), 0, 0.3, zc));
+      root.add(shadowUnder(2.4, def.depth + 0.6));
       break;
     }
   }

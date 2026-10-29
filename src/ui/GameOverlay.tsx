@@ -1,12 +1,31 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { ACHIEVEMENTS } from '../content/achievements';
+import { factById } from '../content/facts';
+import { LEVELS, levelById } from '../content/levels';
 import type { Engine, StartOptions } from '../engine/Engine';
-import type { CaptionTone, ToastTone, UiEvent } from '../engine/events';
-import type { RunResultInfo } from '../save/save';
-import { CHARACTERS, CHARACTER_ORDER } from '../sim/characters';
+import type { CaptionTone, HudSnapshot, ToastTone, UiEvent } from '../engine/events';
+import { levelUnlocked, type RunResultInfo } from '../save/save';
+import { CHARACTERS } from '../sim/characters';
 import { missionById } from '../sim/missions';
 import type { RunSummary } from '../sim/simulation';
 import { THEME_NAMES } from '../sim/themes';
+import type { TokenVariant } from '../sim/types';
+import { SCORE_NOTE } from './disclaimer';
+import { FactTypeBadge, Stars } from './Screens';
 import { updateSave, useSave } from './store';
+
+export const TOKEN_ICON: Record<TokenVariant, string> = {
+  road: '🛣️',
+  diya: '🪔',
+  plane: '✈️',
+  wheat: '🌾',
+  welfare: '🏠',
+  shield: '🛡️',
+  gear: '⚙️',
+  star: '⭐',
+};
+const LETTERS = ['A', 'B', 'C'];
+const LANE_NAMES = ['left lane', 'middle lane', 'right lane'];
 
 interface Props {
   engine: Engine;
@@ -35,6 +54,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
   const [comic, setComic] = useState<Timed<string> | null>(null);
   const [hint, setHint] = useState<Timed<string> | null>(null);
   const [card, setCard] = useState<Timed<{ title: string; body: string }> | null>(null);
+  const [fact, setFact] = useState<Timed<{ factId: string; heading: string }> | null>(null);
   const [paused, setPaused] = useState<{ reason?: string } | null>(null);
   const [over, setOver] = useState<{ summary: RunSummary; info: RunResultInfo; at: number } | null>(null);
   const [confirm, setConfirm] = useState<'restart' | 'menu' | null>(null);
@@ -67,6 +87,9 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
         case 'infoCard':
           setCard({ id: uid++, until: now + 7000, data: { title: ev.title, body: ev.body } });
           break;
+        case 'factCard':
+          setFact({ id: uid++, until: now + 6500, data: { factId: ev.factId, heading: ev.heading } });
+          break;
         case 'paused':
           setPaused(ev.paused ? { reason: ev.reason } : null);
           if (!ev.paused) setConfirm(null);
@@ -76,6 +99,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
           setCaptions([]);
           setHint(null);
           setCard(null);
+          setFact(null);
           break;
       }
     }
@@ -88,6 +112,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
       setComic(null);
       setHint(null);
       setCard(null);
+      setFact(null);
     }
   }, [events]);
 
@@ -100,6 +125,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
       setComic((c) => (c && c.until <= now ? null : c));
       setHint((c) => (c && c.until <= now ? null : c));
       setCard((c) => (c && c.until <= now ? null : c));
+      setFact((c) => (c && c.until <= now ? null : c));
       force((n) => n + 1);
     }, 150);
     return () => window.clearInterval(t);
@@ -108,10 +134,12 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
   const chase = hud.chase;
   const p = hud.power;
   const speedLines = p?.kind === 'vikas' || p?.kind === 'speedRun';
-  const chaseLabel = chase?.kind === 'cycle' ? 'CYCLE YATRA CHASE' : 'BULLDOZER CHASE';
+  const chaseLabel = chase?.kind === 'cycle' ? 'CYCLE YATRA SHOWDOWN' : 'GOVERNANCE SHOWDOWN';
+  const showdowns = hud.mode === 'rivalry' || hud.mode === 'free';
+  const touch = save.settings.touchButtons && hud.active && !over && !paused;
 
   return (
-    <div className={`game-ui ${hud.state === 'CHASE' ? 'chasing' : ''}`}>
+    <div className={`game-ui ${hud.state === 'CHASE' ? 'chasing' : ''} ${touch ? 'with-touch' : ''}`}>
       {speedLines && <div className={`speed-lines ${p?.kind}`} />}
       {hud.active && !over && (
         <>
@@ -120,28 +148,32 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
               {fmt(hud.score)}
               {hud.multiplier > 1 && <span className="mult">×{hud.multiplier}</span>}
             </div>
-            <div className="dist">{fmt(hud.distance)} m • {THEME_NAMES[hud.theme]}</div>
-            {hud.mode !== 'B' && (
-              <div className="meter" title="A fictional satirical meter, not a measurement of anything real">
+            <div className="dist">
+              {fmt(hud.distance)} m • {THEME_NAMES[hud.theme]}
+            </div>
+            {hud.level && <LevelBar level={hud.level} />}
+            {hud.race && <RaceBar race={hud.race} you={CHARACTERS[hud.character].shortName} rival={CHARACTERS[hud.rival].shortName} tokens={hud.devTokens} />}
+            {showdowns && (
+              <div className="meter" title="A fictional game meter, not a measurement of anything real">
                 <div className="meter-label">
-                  GUNDARAJ METER <small>satire</small>
+                  {hud.mode === 'rivalry' ? `STAGE ${hud.stage} • CHALLENGE METER` : 'SHOWDOWN METER'} <small>fictional</small>
                 </div>
                 <div className="bar">
                   <div style={{ width: `${hud.meter}%` }} />
                 </div>
               </div>
             )}
-            {hud.mode !== 'B' && (
-              <div className={`guard ${hud.guardReady && hud.state !== 'CHASE' ? 'ready' : ''}`}>
-                {hud.state === 'CHASE' || hud.state === 'CINEMATIC'
-                  ? '⚠ Chase: one hit ends the run'
-                  : hud.guardReady
+            <div className={`guard ${hud.guardReady && hud.state !== 'CHASE' ? 'ready' : ''}`}>
+              {hud.state === 'CHASE' || hud.state === 'CINEMATIC'
+                ? '⚠ Showdown: one hit ends the run'
+                : hud.guardReady
+                  ? showdowns
                     ? '🛡 Stumble guard ready'
-                    : hud.guardT > 0
-                      ? `🛡 Guard recharging ${Math.ceil(hud.guardT)}s`
-                      : '🛡 Guard used'}
-              </div>
-            )}
+                    : '🛡 Guard ready: a bump only slows you'
+                  : hud.guardT > 0
+                    ? `🛡 Guard recharging ${Math.ceil(hud.guardT)}s`
+                    : '🛡 Guard used'}
+            </div>
           </div>
           <div className="hud-right">
             <div className="coin-pill">
@@ -153,22 +185,24 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
             </button>
             {p && (
               <div className={`power ${p.kind}`}>
-                <span>{p.kind === 'vikas' ? '🚄 Vikas Express' : p.kind === 'magnet' ? '🧲 Vote Magnet' : '⚡ Speed Run ×2'}</span>
+                <span>{p.kind === 'vikas' ? '🚄 Vikas Express' : p.kind === 'magnet' ? '🧲 Vote Magnet' : p.kind === 'bulldozer' ? '🚜 Clearing debris' : '⚡ Speed Run ×2'}</span>
                 <div className="bar thin">
                   <div style={{ width: `${(p.t / p.total) * 100}%` }} />
                 </div>
               </div>
             )}
           </div>
+          {hud.quiz && !fact && !chase && <QuizPanel quiz={hud.quiz} />}
+          {hud.encounter && !hud.quiz && !fact && <EncounterPanel enc={hud.encounter} />}
           {chase && (
             <div className="chase-bar" role="timer" aria-label={`${chaseLabel} ${chase.remaining.toFixed(1)} seconds left`}>
               <div className="chase-title">
-                {chase.kind === 'cycle' ? '🚲' : '🚜'} {chaseLabel} {chase.stage > 0 && <span className="stage">Stage {chase.stage}/3</span>} <b>{chase.remaining.toFixed(1)}s</b>
+                {chase.kind === 'cycle' ? '🚲' : '🚜'} {chaseLabel} {chase.stage > 0 && <span className="chase-stage">Stage {chase.stage}</span>} <b>{chase.remaining.toFixed(1)}s</b>
               </div>
               <div className="bar">
                 <div style={{ width: `${100 - (chase.remaining / chase.total) * 100}%` }} />
               </div>
-              <small>Escapes: {chase.escapes} • every dodge shortens the chase • 2× coins</small>
+              <small>Escapes: {chase.escapes} • every dodge shortens it • 2× coins{hud.mode === 'rivalry' ? ' • grab report cards' : ''}</small>
             </div>
           )}
         </>
@@ -207,6 +241,10 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
       </div>
 
       {hint && <div className="hint">{hint.data}</div>}
+
+      {fact && !over && <FactToast factId={fact.data.factId} heading={fact.data.heading} onClose={() => setFact(null)} />}
+
+      {touch && <TouchButtons engine={engine} />}
 
       {card && !over && (
         <div className="info-card">
@@ -291,6 +329,123 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
   );
 }
 
+function LevelBar({ level }: { level: NonNullable<HudSnapshot['level']> }) {
+  return (
+    <div className="progress-box">
+      <div className="meter-label">
+        LEVEL {level.num} • {level.name.toUpperCase()}
+      </div>
+      <div className="bar progress">
+        <div style={{ width: `${level.progress * 100}%` }} />
+        <span className="flag">🏁</span>
+      </div>
+      <div className={`tokens ${level.tokens >= level.goal ? 'met' : ''}`}>
+        {TOKEN_ICON[level.token]} {level.tokens}/{level.goal}
+      </div>
+    </div>
+  );
+}
+
+function RaceBar({ race, you, rival, tokens }: { race: NonNullable<HudSnapshot['race']>; you: string; rival: string; tokens: number }) {
+  const ahead = race.progress >= race.rival;
+  return (
+    <div className="progress-box race">
+      <div className="meter-label">DEVELOPMENT RACE • {ahead ? 'YOU LEAD' : 'RIVAL LEADS'}</div>
+      <div className="race-track">
+        <span className="runner you" style={{ left: `${race.progress * 100}%` }} title={you}>
+          {you}
+        </span>
+        <span className="runner rival" style={{ left: `${race.rival * 100}%` }} title={rival}>
+          {rival}
+        </span>
+        <span className="flag">🏁</span>
+      </div>
+      <div className="tokens">⭐ {tokens} tokens • +3 m each</div>
+    </div>
+  );
+}
+
+function QuizPanel({ quiz }: { quiz: NonNullable<HudSnapshot['quiz']> }) {
+  const done = quiz.chosen !== null;
+  return (
+    <div className={`quiz-panel ${done ? (quiz.correct ? 'right' : 'wrong') : ''}`} role="status" aria-live="polite">
+      <div className="quiz-head">
+        <b>✅ ACCOUNTABILITY GATE</b>
+        <small>{done ? (quiz.correct ? 'Correct!' : 'Not this time') : `in ${quiz.metres} m • run through your answer`}</small>
+      </div>
+      <div className="quiz-q">{quiz.q}</div>
+      <div className="quiz-options">
+        {quiz.options.map((o, i) => (
+          <div key={o} className={`quiz-opt lane${i} ${done && i === quiz.chosen ? 'chosen' : ''}`} title={LANE_NAMES[i]}>
+            <b>{LETTERS[i]}</b> {o}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EncounterPanel({ enc }: { enc: NonNullable<HudSnapshot['encounter']> }) {
+  if (enc.kind === 'redCap')
+    return (
+      <div className={`enc-panel ${enc.failed ? 'failed' : ''}`}>
+        🧢 <b>RED CAP CHALLENGE</b> • {enc.failed ? 'challenge lost' : `${enc.metres} m to go • no crashes`}
+      </div>
+    );
+  if (enc.kind === 'promises') {
+    const pct = enc.total ? Math.round((enc.got / enc.total) * 100) : 0;
+    return (
+      <div className={`enc-panel ${enc.total && pct < 60 ? 'warn' : ''}`}>
+        📜 <b>PROMISES VS PERFORMANCE</b> • {enc.got}/{enc.total} delivered ({pct}%, 60% needed) • {enc.metres} m
+      </div>
+    );
+  }
+  return null;
+}
+
+function FactToast({ factId, heading, onClose }: { factId: string; heading: string; onClose: () => void }) {
+  const f = factById(factId);
+  if (!f) return null;
+  return (
+    <div className="fact-toast">
+      <button className="btn icon small close" aria-label="Dismiss" onClick={onClose}>
+        ✕
+      </button>
+      <FactTypeBadge type={f.type} />
+      <b>{heading.split(' • ').slice(1).join(' • ') || f.title}</b>
+      <p>{f.text}</p>
+      <small>Sources on the Achievements &amp; Facts board.</small>
+    </div>
+  );
+}
+
+const TOUCH: [string, 'left' | 'jump' | 'slide' | 'right', string][] = [
+  ['◀', 'left', 'Move left'],
+  ['▲', 'jump', 'Jump'],
+  ['▼', 'slide', 'Slide'],
+  ['▶', 'right', 'Move right'],
+];
+
+function TouchButtons({ engine }: { engine: Engine }) {
+  return (
+    <div className="touch-pad">
+      {TOUCH.map(([label, action, name]) => (
+        <button
+          key={action}
+          className="btn touch-btn"
+          aria-label={name}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            engine.press(action);
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function GameOver({
   over,
   onMenu,
@@ -311,17 +466,79 @@ function GameOver({
     const t = window.setTimeout(() => setArmed(true), 700);
     return () => window.clearTimeout(t);
   }, []);
-  const title = s.completed ? 'CHALLENGE COMPLETE!' : s.chaseResult === 'failed' ? 'CAUGHT IN THE CHASE!' : s.reason === 'quit' ? 'RUN ENDED' : 'RUN OVER';
+  const level = s.level ? levelById(s.level.id) : undefined;
+  const next = level ? LEVELS[level.num] : undefined;
+  const nextOpen = next ? levelUnlocked(save, next.id) : false;
+  const won = !!(s.level?.completed || s.race?.won);
+  const title = level
+    ? s.level?.completed
+      ? 'LEVEL COMPLETE!'
+      : 'LEVEL NOT FINISHED'
+    : s.race
+      ? s.race.won
+        ? 'RACE WON!'
+        : 'RIVAL WINS THE RACE'
+      : s.chaseResult === 'failed'
+        ? 'CAUGHT IN THE SHOWDOWN!'
+        : s.reason === 'quit'
+          ? 'RUN ENDED'
+          : 'RUN OVER';
   const best = save.best[s.mode];
-  const others = CHARACTER_ORDER.filter((id) => id !== s.character && save.unlocked.includes('char.' + id));
   const b = s.breakdown;
+  const badge = info.badgeEarned && level ? level.badge : null;
   return (
     <div className="modal">
-      <div className="card modal-card results">
-        <h2 className={s.completed ? 'win' : ''}>{title}</h2>
+      <div className={`card modal-card results ${won ? 'won' : ''}`}>
+        <h2 className={won ? 'win' : ''}>{title}</h2>
+        {level && (
+          <div className="result-level">
+            Level {level.num}: {level.name}
+            {s.level?.completed && <Stars n={s.level.stars} big />}
+          </div>
+        )}
         {info.newBest && <div className="badge">NEW BEST!</div>}
-        <div className="final-score">{fmt(s.score)}</div>
+        <div className="final-score" title={SCORE_NOTE}>
+          {fmt(s.score)}
+        </div>
+        {badge && (
+          <div className="reward-badge">
+            <span className="reward-icon">{badge.icon}</span>
+            <div>
+              <b>Badge earned: {badge.name}</b>
+              <small>{badge.perkText}</small>
+            </div>
+          </div>
+        )}
+        {info.giftCoins > 0 && <div className="msg">🏠 Public Service bonus: +₹{info.giftCoins}</div>}
         <div className="stats compact">
+          {level && s.level && (
+            <div>
+              <span>{level.tokenName}</span>
+              <b>
+                {s.level.tokens}/{s.level.goal}
+              </b>
+            </div>
+          )}
+          {level && s.level && !s.level.completed && (
+            <div>
+              <span>Progress</span>
+              <b>{Math.min(100, Math.round((s.distance / level.length) * 100))}%</b>
+            </div>
+          )}
+          {s.race && (
+            <div>
+              <span>{s.race.won ? 'Winning margin' : 'Behind by'}</span>
+              <b>{Math.abs(s.race.margin)} m</b>
+            </div>
+          )}
+          {s.mode === 'rivalry' && (
+            <div>
+              <span>Stage reached</span>
+              <b>
+                {s.stats.stage} • report cards {s.stats.reportCards}
+              </b>
+            </div>
+          )}
           <div>
             <span>Best</span>
             <b>{fmt(best)}</b>
@@ -337,10 +554,28 @@ function GameOver({
               {info.missionRewards > 0 && ` + ₹${info.missionRewards}`}
             </b>
           </div>
-          <div>
-            <span>Chase</span>
-            <b>{s.chaseResult === 'survived' ? `Survived ×${s.stats.chasesSurvived}` : s.chaseResult === 'failed' ? (s.stats.chasesSurvived ? `Survived ×${s.stats.chasesSurvived}, then caught` : 'Caught') : 'No chase'}</b>
-          </div>
+          {s.stats.quizAnswered > 0 && (
+            <div>
+              <span>Accountability Gates</span>
+              <b>
+                {s.stats.quizCorrect}/{s.stats.quizAnswered}
+              </b>
+            </div>
+          )}
+          {s.stats.rivalChallenges > 0 && (
+            <div>
+              <span>Red Cap Challenges</span>
+              <b>
+                {s.stats.rivalWins}/{s.stats.rivalChallenges} won
+              </b>
+            </div>
+          )}
+          {s.chaseResult !== 'none' && (
+            <div>
+              <span>Showdowns</span>
+              <b>{s.chaseResult === 'survived' ? `Escaped ×${s.stats.chasesSurvived}` : s.stats.chasesSurvived ? `Escaped ×${s.stats.chasesSurvived}, then caught` : 'Caught'}</b>
+            </div>
+          )}
         </div>
         {s.missionsCompleted.length > 0 && (
           <div className="missions-done">
@@ -349,20 +584,20 @@ function GameOver({
             ))}
           </div>
         )}
+        {info.achievementsNow.map((id) => {
+          const a = ACHIEVEMENTS.find((x) => x.id === id);
+          return a ? (
+            <div key={id} className="msg">
+              {a.icon} Achievement unlocked: {a.name}
+            </div>
+          ) : null;
+        })}
         {info.unlockedNow.map((id) => (
-          <div key={id} className="msg">🔓 Unlocked {CHARACTERS[id.replace('char.', '') as keyof typeof CHARACTERS]?.name}!</div>
-        ))}
-        {s.mode === 'C' && (
-          <div className="faceoff">
-            <b>Today's Political Face-Off</b>
-            {CHARACTER_ORDER.filter((id) => save.unlocked.includes('char.' + id)).map((id) => (
-              <div key={id} className={id === s.character ? 'me' : ''}>
-                <span>{CHARACTERS[id].shortName}</span>
-                <b>{fmt(save.showdown.best[id])}</b>
-              </div>
-            ))}
+          <div key={id} className="msg">
+            🔓 Unlocked {CHARACTERS[id.replace('char.', '') as keyof typeof CHARACTERS]?.name}!
           </div>
-        )}
+        ))}
+        {info.nextLevelUnlocked && <div className="msg">🔓 Level {levelById(info.nextLevelUnlocked)?.num} unlocked: {levelById(info.nextLevelUnlocked)?.name}</div>}
         <button className="link" onClick={() => setDetails((v) => !v)}>
           {details ? 'Hide' : 'Show'} score breakdown
         </button>
@@ -371,22 +606,30 @@ function GameOver({
             <div><span>Distance</span><b>{fmt(b.distance)}</b></div>
             <div><span>Coins</span><b>{fmt(b.coins)}</b></div>
             <div><span>Dodges</span><b>{fmt(b.dodges)}</b></div>
-            <div><span>Chase bonuses</span><b>{fmt(b.chase)}</b></div>
+            <div><span>Showdown bonuses</span><b>{fmt(b.chase)}</b></div>
+            <div><span>Development tokens</span><b>{fmt(b.tokens)}</b></div>
+            <div><span>Rivalry &amp; gates</span><b>{fmt(b.rival)}</b></div>
+            <div><span>Level / race</span><b>{fmt(b.level)}</b></div>
             <div><span>Missions</span><b>{fmt(b.missions)}</b></div>
             <div><span>Discoveries</span><b>{fmt(b.discovery)}</b></div>
-            <div><span>Tokens</span><b>{fmt(b.tokens)}</b></div>
             {s.discoveries.length > 0 && <div><span>New routes</span><b>{s.discoveries.map((t) => THEME_NAMES[t]).join(', ')}</b></div>}
           </div>
         )}
-        <button className="btn primary huge" disabled={!armed} onClick={onRetry} autoFocus>
-          ↻ Retry
-        </button>
-        {s.mode === 'C' &&
-          others.map((id) => (
-            <button key={id} className="btn" disabled={!armed} onClick={() => onStart({ mode: 'C', character: id })}>
-              Try the same course as {CHARACTERS[id].shortName}
+        <small className="muted">{SCORE_NOTE}</small>
+        {level && s.level?.completed && next && nextOpen ? (
+          <>
+            <button className="btn primary huge" disabled={!armed} onClick={() => onStart({ mode: 'campaign', level: next.id, character: s.character })} autoFocus>
+              ▶ Next: {next.name}
             </button>
-          ))}
+            <button className="btn" disabled={!armed} onClick={onRetry}>
+              ↻ Replay level
+            </button>
+          </>
+        ) : (
+          <button className="btn primary huge" disabled={!armed} onClick={onRetry} autoFocus>
+            ↻ {level ? 'Replay level' : s.race ? 'Race again' : 'Retry'}
+          </button>
+        )}
         <button className="btn" disabled={!armed} onClick={onMenu}>
           ⌂ Main menu
         </button>

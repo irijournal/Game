@@ -210,19 +210,6 @@ describe('stumble → rival entrance → chase', () => {
   });
 });
 
-describe('Mode B (Bulldozer Chase challenge)', () => {
-  it('starts the chase, and the bot can complete it', () => {
-    let completed = 0;
-    for (const seed of [1, 2, 3, 4, 5, 6]) {
-      const sim = new Simulation(baseConfig({ mode: 'B', seed }));
-      const ev = drive(sim, 60, { bot: new Autopilot() });
-      expect(states(ev).slice(0, 2)).toEqual(['CINEMATIC', 'CHASE']);
-      if (sim.summary?.completed) completed++;
-    }
-    expect(completed).toBeGreaterThanOrEqual(5);
-  });
-});
-
 describe('state machine never gets stuck', () => {
   const LIMIT: Partial<Record<SimState, number>> = {
     STUMBLE: STUMBLE_TIME + 0.05,
@@ -235,7 +222,16 @@ describe('state machine never gets stuck', () => {
 
   it('random inputs on 40 seeds: every non-terminal state exits on time', () => {
     for (let seed = 100; seed < 140; seed++) {
-      const sim = new Simulation(baseConfig({ seed, mode: seed % 3 === 0 ? 'B' : seed % 3 === 1 ? 'A' : 'C' }));
+      const modes = ['free', 'rivalry', 'campaign', 'race'] as const;
+      const mode = modes[seed % 4];
+      const sim = new Simulation(
+        baseConfig({
+          seed,
+          mode,
+          level: mode === 'campaign' ? { id: 'lawandorder', length: 900, tokenGoal: 20, token: 'shield', diff: 0.4, events: [{ kind: 'redCap', at: 300, len: 200 }, { kind: 'quiz', at: 650, quiz: 'q.gundaraj' }, { kind: 'bulldozer', at: 200 }] } : undefined,
+          race: mode === 'race' ? { length: 900, rivalPace: 0.985 } : undefined,
+        }),
+      );
       let x = seed;
       const acts: Action[] = ['left', 'right', 'jump', 'slide', 'skip'];
       for (let t = 0; t < 120 && sim.state !== 'GAME_OVER'; t += 1 / 60) {
@@ -272,7 +268,8 @@ describe('long session and restart', () => {
       }
     }
     expect(maxObs).toBeLessThan(80);
-    expect(maxPick).toBeLessThan(260);
+    // Coin Rush chunks can extend ~450 m ahead at top speed; still bounded.
+    expect(maxPick).toBeLessThan(500);
     expect(maxRows).toBeLessThan(40);
   });
 

@@ -5,3 +5,4 @@ dist-single
 .DS_Store
 test-results
 tests/e2e/screenshots
+dev/shots/

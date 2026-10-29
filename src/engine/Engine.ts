@@ -1,21 +1,27 @@
 import * as THREE from 'three';
-import { activeMissions, applyRun, type SaveStore, type Settings } from '../save/save';
+import { factById, FACT_TYPE_LABEL } from '../content/facts';
+import { levelById, type LevelId } from '../content/levels';
+import { QUIZ, quizById } from '../content/quiz';
+import { activeMissions, applyRun, perksFor, type RunResultInfo, type SaveStore, type Settings } from '../save/save';
 import { Autopilot } from '../sim/autopilot';
 import { CHARACTERS } from '../sim/characters';
-import { LANE_X } from '../sim/constants';
-import { dayKey } from '../sim/missions';
+import { LANE_X, RACE_LENGTH, RACE_PACE } from '../sim/constants';
 import { hashString } from '../sim/rng';
-import { Simulation, type SimEvent } from '../sim/simulation';
-import { THEME_NAMES, themeAt } from '../sim/themes';
+import { Simulation, type RunSummary, type SimEvent } from '../sim/simulation';
+import { THEME_NAMES } from '../sim/themes';
 import type { Action, CharacterId, ModeId, ObstacleClass, ThemeId } from '../sim/types';
 import { AudioEngine, type Track } from './audio';
 import { CameraRig } from './camera';
-import { HudStore, type CaptionTone, type UiEvent } from './events';
+import { HudStore, type CaptionTone, type HudSnapshot, type UiEvent } from './events';
+
+type HudSnapshotQuiz = HudSnapshot['quiz'];
 import { InputController, type InputAction } from './input';
 import { buildCharacter, disposeRig } from './view/characterModels';
 import type { CharacterRig } from './view/characterRig';
 import { INTRO_LENGTH, introShot, RivalDirector } from './view/cinematics';
+import { DebateStage, type Speaker } from './view/debateStage';
 import { Particles } from './view/effects';
+import { EncounterViews } from './view/encounterViews';
 import { basic, mergeStatic, mesh, plane } from './view/materials';
 import { buildAutoRickshaw } from './view/vehicles';
 import { debugCollider, ObstaclePool, type ObstacleView } from './view/obstacleViews';
@@ -26,9 +32,14 @@ import { World } from './view/world';
 export interface StartOptions {
   mode: ModeId;
   character: CharacterId;
+  /** Campaign only. */
+  level?: LevelId;
 }
 
-type EngineMode = 'boot' | 'intro' | 'attract' | 'showcase' | 'game';
+type EngineMode = 'boot' | 'intro' | 'attract' | 'showcase' | 'game' | 'debate';
+
+const CELEBRATION = 2.2;
+const LETTERS = ['A', 'B', 'C'];
 
 interface Knocked {
   view: ObstacleView;
@@ -62,6 +73,8 @@ export class Engine {
   private fx = new Particles(700);
   private pickups = new PickupViews();
   private rival = new RivalDirector();
+  private encounters = new EncounterViews();
+  private debate = new DebateStage();
   private pool = new ObstaclePool();
   private input!: InputController;
   private player: CharacterRig | null = null;
@@ -97,6 +110,11 @@ export class Engine {
   private flourish = 0;
   private static readonly FLOURISH = 1.5;
   private lastTrack: Track = 'none';
+  /** Victory beat before the reward screen (level complete / race won). */
+  private celebrateT = 0;
+  /** Seconds since the simulation reached GAME_OVER. */
+  private overT = 0;
+  private pendingResult: { summary: RunSummary; info: RunResultInfo } | null = null;
   debugAutopilot = false;
   /** Test hook: when true the RAF loop idles and stepManual() drives time. */
   manual = false;
@@ -122,7 +140,7 @@ export class Engine {
     this.container.appendChild(canvas);
 
     this.world = new World(this.scene);
-    this.scene.add(this.fx.points, this.pickups.group, this.rival.group);
+    this.scene.add(this.fx.points, this.pickups.group, this.rival.group, this.encounters.group, this.debate.group);
     (this.playerShadow.material as THREE.MeshBasicMaterial).map = blobShadow();
     this.playerShadow.rotation.x = -Math.PI / 2;
     this.scene.add(this.playerShadow);
@@ -275,7 +293,11 @@ export class Engine {
     this.pickups.clear();
     this.fx.clear();
     this.rival.reset();
+    this.encounters.reset();
     this.captions = [];
+    this.celebrateT = 0;
+    this.overT = 0;
+    this.pendingResult = null;
     this.audio.engine(false);
   }
 
@@ -283,7 +305,9 @@ export class Engine {
   showShowcase(id: CharacterId): void {
     this.endRun();
     this.mode = 'showcase';
+    this.debate.group.visible = false;
     const p = this.setPlayer(id);
+    p.root.visible = true;
     p.root.position.set(0, 0, 0);
     p.root.rotation.set(0, Math.PI, 0);
     p.setAnim('idle', true);
@@ -309,10 +333,10 @@ export class Engine {
     this.mode = 'intro';
     this.introT = 0;
     this.menuD = 0;
-    const p = this.setPlayer('akhilesh');
+    const p = this.setPlayer('yogi');
     p.root.position.set(0, 0, 0);
     p.setAnim('idle', true);
-    this.world.setTheme('lucknow', true);
+    this.world.setTheme('lawandorder', true);
     const shot = introShot(0);
     this.cam.targetPos.copy(shot.pos);
     this.cam.targetLook.copy(shot.look);
@@ -334,35 +358,47 @@ export class Engine {
     this.flourish = flourish && !this.settings.shortCinematics ? Engine.FLOURISH : 0;
     this.save.refreshDay();
     this.clearRunViews();
-    this.lastOpts = opts;
+    this.debate.group.visible = false;
     const d = this.save.data;
-    const def = CHARACTERS[opts.character];
-    const rival = opts.mode === 'C' ? def.rival : 'yogi';
+    const level = opts.mode === 'campaign' ? levelById(opts.level ?? 'expressway') : undefined;
+    // Rivalry Mode always puts the player in the rival's shoes.
+    const character: CharacterId = opts.mode === 'rivalry' ? 'akhilesh' : opts.character;
+    this.lastOpts = { ...opts, character };
+    const rival = CHARACTERS[character].rival;
     const vehicle = CHARACTERS[rival].vehicle;
-    const seed = opts.mode === 'C' ? hashString('showdown:' + dayKey()) : (Math.random() * 2 ** 31) >>> 0;
+    // Levels are fixed courses (learnable for 3 stars); other modes vary.
+    const seed = level ? hashString('level:' + level.id) : (Math.random() * 2 ** 31) >>> 0;
+    const startTheme: ThemeId = level ? level.id : opts.mode === 'rivalry' ? 'lawandorder' : d.startRoute;
     this.sim = new Simulation({
       mode: opts.mode,
-      character: opts.character,
+      character,
       rival,
       seed,
-      // Modes B and C always start on the same route so courses are comparable.
-      startTheme: opts.mode === 'A' ? d.startRoute : 'lucknow',
+      startTheme,
       shortCinematics: d.settings.shortCinematics,
       missions: activeMissions(d),
       discovered: d.discovered,
       tutorial: !d.flags.tutorialDone,
+      level: level ? { id: level.id, length: level.length, tokenGoal: level.tokenGoal, token: level.token, diff: level.diff, events: level.events } : undefined,
+      race: opts.mode === 'race' ? { length: RACE_LENGTH, rivalPace: RACE_PACE } : undefined,
+      perks: perksFor(d),
+      quizPool: opts.mode === 'free' ? QUIZ.map((q) => ({ id: q.id, answer: q.answer })) : undefined,
+      quizAnswers: Object.fromEntries(QUIZ.map((q) => [q.id, q.answer])),
     });
     this.autopilot = this.debugAutopilot ? new Autopilot() : null;
-    this.rival.configure(rival, vehicle, CHARACTERS[rival].outfits[0].id);
-    const p = this.setPlayer(opts.character);
+    const rivalOutfit = CHARACTERS[rival].outfits[0].id;
+    this.rival.configure(rival, vehicle, rivalOutfit);
+    this.encounters.configure(rival, rivalOutfit);
+    const p = this.setPlayer(character);
+    p.root.visible = true;
     p.root.rotation.set(0, 0, 0);
     p.root.position.set(LANE_X[1], 0, 0);
     p.setAnim('run', true);
     if (this.flourish > 0) {
       // Each character's own introductory gesture before the first step.
       p.root.rotation.y = Math.PI;
-      p.setAnim(opts.character === 'yogi' ? 'entrance' : 'idle', true);
-      if (opts.character === 'akhilesh') p.animT = 2.95; // lands on the cap adjust
+      p.setAnim(character === 'yogi' ? 'entrance' : 'idle', true);
+      if (character === 'akhilesh') p.animT = 2.95; // lands on the cap adjust
     }
     this.world.setTheme(this.sim.theme, true);
     this.world.resetBlocks();
@@ -377,11 +413,13 @@ export class Engine {
       this.cam.targetLook.set(0, 1.3, 0);
     }
     this.cam.snap();
-    this.setTrack(opts.mode === 'B' ? 'chase' : this.sim.theme);
+    this.setTrack(this.sim.theme);
     this.emit({ type: 'paused', paused: false });
     this.emit({ type: 'clearCaptions' });
     (document.activeElement as HTMLElement | null)?.blur?.();
-    if (opts.mode === 'B') this.caption('BULLDOZER CHASE CHALLENGE', 'Survive 30 seconds. Every dodge gets you closer to escaping.', 'info', 1400, 0);
+    if (level) this.caption(`LEVEL ${level.num}: ${level.name.toUpperCase()}`, level.mission, 'info', 2000, 0);
+    else if (opts.mode === 'rivalry') this.caption('RIVALRY MODE', 'You play the rival. A Political Challenge is ahead — escape the Governance Showdown to clear each stage.', 'info', 2200, 0);
+    else if (opts.mode === 'race') this.caption('DEVELOPMENT RACE', 'Race for roads, jobs and better public services! Every development token = +3 m.', 'info', 2200, 0);
     this.lastT = performance.now();
     this.pushHud(true);
   }
@@ -400,6 +438,35 @@ export class Engine {
     this.paused = false;
     this.showShowcase(this.save.data.selectedCharacter);
     this.emit({ type: 'paused', paused: false });
+  }
+
+  /** Debate Arena: the hero and the rival on stage (dialogue is in the UI). */
+  showDebate(): void {
+    this.endRun();
+    this.mode = 'debate';
+    const d = this.save.data;
+    const hero: CharacterId = d.selectedCharacter === 'akhilesh' ? 'yogi' : d.selectedCharacter;
+    this.debate.configure(hero, d.equipped[hero].outfit, 'akhilesh', d.equipped.akhilesh.outfit);
+    this.debate.group.visible = true;
+    if (this.player) this.player.root.visible = false;
+    this.world.setTheme('lawandorder', true);
+    this.world.resetBlocks();
+    this.input.enabled = false;
+    this.cam.snap();
+    this.setTrack('debate');
+  }
+
+  debateSpeaker(who: Speaker): void {
+    this.debate.speaker = who;
+  }
+
+  debateResult(winner: 'hero' | 'rival'): void {
+    this.debate.speaker = null;
+    this.debate.result = winner;
+    if (winner === 'hero') {
+      this.audio.play('fanfare');
+      this.fx.confetti({ x: -2.4, y: 3.5, z: 0.5 }, [0xff8c1a, 0xffffff, 0x1f8a4c, 0xffd23a], 60, false);
+    } else this.audio.play('wrong');
   }
 
   private endRun(): void {
@@ -428,6 +495,11 @@ export class Engine {
 
   skipCinematic(): void {
     this.sim?.skipCinematic();
+  }
+
+  /** On-screen touch buttons. */
+  press(a: 'left' | 'right' | 'jump' | 'slide'): void {
+    this.onInput(a);
   }
 
   setShowcaseCharacter(id: CharacterId): void {
@@ -470,6 +542,9 @@ export class Engine {
       case 'game':
         this.tickGame(dt);
         break;
+      case 'debate':
+        this.tickDebate(dt);
+        break;
     }
     this.cam.update(dt);
   }
@@ -489,7 +564,7 @@ export class Engine {
     this.cam.stiffness = this.introT < 4.2 ? 20 : 5;
     this.cam.targetPos.copy(s.pos);
     this.cam.targetLook.copy(s.look);
-    this.world.update(dt, this.menuD, this.cam.camera, () => 'lucknow', () => (this.menuD < 60 ? 'posterAlley' : null), false);
+    this.world.update(dt, this.menuD, this.cam.camera, () => 'lawandorder', () => (this.menuD < 60 ? 'posterAlley' : null), false);
     this.traffic.visible = this.introT < 6.8;
     for (const a of this.traffic.children) {
       const u = a.userData as { lane: number; offset: number; speed: number };
@@ -525,9 +600,23 @@ export class Engine {
         this.cam.targetLook.set(1.1, 1.15, 0);
       }
     }
-    this.world.update(dt, this.menuD, this.cam.camera, (s) => themeAt(this.save.data.startRoute, s), () => null, false);
+    const route = this.save.data.startRoute;
+    this.world.update(dt, this.menuD, this.cam.camera, () => route, () => null, false);
     this.updateShadow(0, 0, 0);
     this.fx.update(dt, this.mode === 'attract' ? dt * 11 : 0);
+  }
+
+  private tickDebate(dt: number): void {
+    this.debate.update(dt, this.time);
+    const portrait = this.cam.portrait;
+    this.cam.stiffness = 3;
+    const sway = Math.sin(this.time * 0.3) * 0.6;
+    this.cam.targetPos.set(sway, 3.5 + (portrait ? 1.6 : 0), 11 + (portrait ? 7 : 0));
+    this.cam.targetLook.set(0, portrait ? 0.4 : 1.4, 0);
+    this.cam.fovBoost = 0;
+    this.world.update(dt, 0, this.cam.camera, () => 'lawandorder', () => null, false);
+    this.playerShadow.visible = false;
+    this.fx.update(dt, 0);
   }
 
   private tickGame(dt: number): void {
@@ -540,7 +629,8 @@ export class Engine {
       p.root.rotation.y = Math.PI * (1 - turn);
       if (turn > 0) p.setAnim('run');
       p.update(dt, 4 + turn * 9);
-      this.world.update(dt, sim.d, this.cam.camera, (s) => themeAt(sim.cfg.startTheme, s), (s) => sim.eventAt(s), false);
+      this.world.update(dt, sim.d, this.cam.camera, (s) => sim.themeAtS(s), (s) => sim.eventAt(s), false);
+      this.encounters.update(dt, sim, this.time, this.fx);
       this.syncObstacles(dt, sim);
       this.pickups.sync(sim.pickups, sim.d, this.time);
       this.updateShadow(p.root.position.x, 0, 0);
@@ -554,6 +644,7 @@ export class Engine {
       return;
     }
     if (this.autopilot) for (const a of this.autopilot.decide(sim)) sim.input(a);
+    if (sim.state === 'GAME_OVER') this.overT += dt;
     const prevD = sim.d;
     sim.advance(dt);
     const dz = sim.d - prevD;
@@ -562,7 +653,8 @@ export class Engine {
     this.runCaptions(sim);
 
     this.updatePlayer(dt, sim);
-    this.world.update(dt, sim.d, this.cam.camera, (s) => themeAt(sim.cfg.startTheme, s), (s) => sim.eventAt(s), sim.vikasT > 0);
+    this.world.update(dt, sim.d, this.cam.camera, (s) => sim.themeAtS(s), (s) => sim.eventAt(s), sim.vikasT > 0);
+    this.encounters.update(dt, sim, this.time, this.fx);
     this.syncObstacles(dt, sim);
     this.pickups.sync(sim.pickups, sim.d, this.time);
     const shot = this.rival.update(dt, sim, this.cam.camera, this.fx, this.time);
@@ -575,6 +667,15 @@ export class Engine {
     this.fx.update(dt, dz);
     this.coinSfxT -= dt;
 
+    if (this.celebrateT > 0) {
+      this.celebrateT -= dt;
+      if (Math.random() < dt * 3) this.fx.fireworks({ x: (Math.random() - 0.5) * 8, y: 5 + Math.random() * 2, z: -6 - Math.random() * 4 });
+      if (this.celebrateT <= 0 && this.pendingResult) {
+        this.emit({ type: 'gameOver', ...this.pendingResult });
+        this.pendingResult = null;
+      }
+    }
+
     this.hudTimer -= dt;
     if (this.hudTimer <= 0) {
       this.hudTimer = 0.1;
@@ -586,13 +687,26 @@ export class Engine {
     const sim = this.sim;
     if (!sim) return;
     const power =
-      sim.vikasT > 0
-        ? { kind: 'vikas' as const, t: sim.vikasT, total: 5 }
-        : sim.speedRunT > 0
-          ? { kind: 'speedRun' as const, t: sim.speedRunT, total: 8 }
-          : sim.magnetT > 0
-            ? { kind: 'magnet' as const, t: sim.magnetT, total: 8 }
-            : null;
+      sim.bulldozerT > 0
+        ? { kind: 'bulldozer' as const, t: sim.bulldozerT, total: sim.bulldozerTotal }
+        : sim.vikasT > 0
+          ? { kind: 'vikas' as const, t: sim.vikasT, total: 5 }
+          : sim.speedRunT > 0
+            ? { kind: 'speedRun' as const, t: sim.speedRunT, total: 8 }
+            : sim.magnetT > 0
+              ? { kind: 'magnet' as const, t: sim.magnetT, total: 8 }
+              : null;
+    const ldef = sim.cfg.level ? levelById(sim.cfg.level.id) : undefined;
+    const r2 = (x: number) => Math.round(x * 200) / 200;
+    let quiz: HudSnapshotQuiz = null;
+    for (const e of sim.encounters) {
+      if (e.kind !== 'quiz' || !e.announced || !e.quizId || (e.ended && sim.d - e.s0 > 25)) continue;
+      const q = quizById(e.quizId);
+      if (!q) continue;
+      quiz = { id: q.id, q: q.q, options: q.options, metres: Math.max(0, Math.round(e.s0 - sim.d)), chosen: e.ended ? (e.chosen ?? null) : null, correct: e.ended ? !!e.correct : null };
+      break;
+    }
+    const enc = sim.encounters.find((e) => (e.kind === 'redCap' || e.kind === 'promises') && e.started && !e.ended);
     const snap = {
       active: true,
       score: sim.score.total,
@@ -609,10 +723,16 @@ export class Engine {
               total: sim.chase.total,
               escapes: sim.chase.escapes,
               kind: sim.chaseKind,
-              stage: sim.cfg.mode === 'B' ? Math.min(3, 1 + Math.floor((sim.chase.total - sim.chase.remaining) / (sim.chase.total / 3))) : 0,
+              stage: sim.isRivalry ? sim.stats.stage : 0,
             }
           : null,
       power: power ? { ...power, t: Math.round(power.t * 10) / 10 } : null,
+      level: ldef ? { id: ldef.id, num: ldef.num, name: ldef.name, progress: r2(sim.progress), tokens: sim.stats.devTokens, goal: ldef.tokenGoal, token: ldef.token } : null,
+      race: sim.cfg.race ? { progress: r2(sim.progress), rival: r2(sim.rivalProgress) } : null,
+      quiz,
+      encounter: enc ? { kind: enc.kind, got: enc.got, total: enc.total, failed: enc.failed, metres: Math.max(0, Math.round(enc.s1 - sim.d)) } : null,
+      devTokens: sim.stats.devTokens,
+      stage: sim.stats.stage,
       mode: sim.cfg.mode,
       character: sim.cfg.character,
       rival: sim.cfg.rival,
@@ -636,6 +756,11 @@ export class Engine {
     if (st === 'STUMBLE') {
       this.cam.targetPos.set(p.x * 0.6, 2.7, 5.0 + (portrait ? 1.2 : 0));
       this.cam.targetLook.set(p.x, 1.1, -3);
+    } else if (st === 'GAME_OVER' && (sim.summary?.completed || sim.summary?.reason === 'raceLost')) {
+      // Victory (or race-over) beat: in front of the runner, who turns to the camera.
+      this.cam.stiffness = 2.5;
+      this.cam.targetPos.set(p.x + 1.6, 2.3 + (portrait ? 0.8 : 0), -4.6 - (portrait ? 1.5 : 0));
+      this.cam.targetLook.set(p.x, 1.2, 0);
     } else if (st === 'FAILURE' || st === 'GAME_OVER') {
       // High three-quarter view from the side the road is open on: always
       // above walls (max 3.1 m) and outside the crashed-into lane.
@@ -675,7 +800,10 @@ export class Engine {
     rig.root.rotation.set(0, 0, lean + (p.bumpT > 0 ? Math.sin(p.bumpT * 40) * 0.12 : 0));
     const st = sim.state;
     if (st === 'STUMBLE') rig.setAnim('stumble');
-    else if (st === 'FAILURE' || st === 'GAME_OVER') {
+    else if (st === 'GAME_OVER' && (sim.summary?.completed || sim.summary?.reason === 'raceLost')) {
+      rig.setAnim(sim.summary.completed ? 'victory' : 'idle');
+      rig.root.rotation.y = Math.min(Math.PI, this.overT * 5);
+    } else if (st === 'FAILURE' || st === 'GAME_OVER') {
       const gap = sim.crashedInto?.cls === 'gap';
       if (gap) {
         rig.root.position.y = Math.max(-0.75, -sim.stateTime * 3);
@@ -805,6 +933,18 @@ export class Engine {
     this.audio.setTrack(t);
   }
 
+  private knock(id: number, vx: number): void {
+    const v = this.obstacleViews.get(id);
+    if (!v) return;
+    this.obstacleViews.delete(id);
+    const g = this.gantries.get(id);
+    if (g) {
+      this.pool.releaseGantry(g);
+      this.gantries.delete(id);
+    }
+    this.knocked.set(id, { view: v, t: 0, vx, vy: 6, spin: 5 });
+  }
+
   private handle(e: SimEvent, sim: Simulation): void {
     const p = sim.player;
     const a = this.audio;
@@ -816,10 +956,13 @@ export class Engine {
         }
         this.fx.sparkle({ x: p.x, y: p.y + 1.1, z: -0.4 });
         break;
-      case 'pickup':
-        a.play(e.kind === 'heritageToken' || e.kind === 'chaseToken' ? 'token' : 'powerup');
-        this.fx.confetti({ x: p.x, y: p.y + 1.2, z: -0.5 }, [0xffd23a, 0xffffff, 0x00c2b0], 18);
+      case 'pickup': {
+        const token = e.kind === 'devToken' || e.kind === 'chaseToken' || e.kind === 'reportCard' || e.kind === 'promise';
+        a.play(token ? 'token' : 'powerup');
+        if (token) this.fx.sparkle({ x: p.x, y: p.y + 1.2, z: -0.5 }, e.kind === 'devToken' ? 0xff9a1a : 0xffffff);
+        else this.fx.confetti({ x: p.x, y: p.y + 1.2, z: -0.5 }, [0xff8c1a, 0xffffff, 0x1f8a4c], 18);
         break;
+      }
       case 'jump':
         a.play('jump');
         break;
@@ -840,53 +983,58 @@ export class Engine {
       case 'stumble': {
         a.play('stumble');
         this.cam.shake(0.3);
-        this.emit({ type: 'comic', text: COMIC_WORDS[Math.floor(Math.random() * COMIC_WORDS.length)] });
+        this.emit({ type: 'comic', text: e.scripted ? 'WHOA!' : COMIC_WORDS[Math.floor(Math.random() * COMIC_WORDS.length)] });
         const v = this.obstacleViews.get(e.obstacleId);
-        if (v) {
-          this.obstacleViews.delete(e.obstacleId);
-          const g = this.gantries.get(e.obstacleId);
-          if (g) {
-            this.pool.releaseGantry(g);
-            this.gantries.delete(e.obstacleId);
-          }
-          this.knocked.set(e.obstacleId, { view: v, t: 0, vx: (v.root.position.x >= 0 ? 1 : -1) * 7, vy: 6, spin: 5 });
-        }
+        if (v) this.knock(e.obstacleId, (v.root.position.x >= 0 ? 1 : -1) * 7);
         break;
       }
+      case 'recover':
+        this.emit({ type: 'toast', text: 'BACK ON TRACK!', sub: 'Stumble guard used — it recharges soon', tone: 'info' });
+        break;
       case 'eventPending':
-        this.caption('SOMETHING IS COMING…', undefined, 'warn', 1200, 0);
+        if (e.challenge) this.caption('POLITICAL CHALLENGE AHEAD!', 'Gundaraj or good governance? The showdown begins!', 'warn', 1600, 0);
+        else this.caption('SOMETHING IS COMING…', undefined, 'warn', 1200, 0);
         a.play('warn');
         break;
       case 'cinematicStart': {
         const bulldozer = sim.chaseKind === 'bulldozer';
         const rivalName = CHARACTERS[sim.cfg.rival].name;
-        a.engine(bulldozer);
+        a.engine(true);
         this.setTrack('chase');
         if (e.kind === 'full') {
           a.play('stinger');
-          this.caption('A NEW CHALLENGE HAS ENTERED THE RUN!', `${rivalName} makes an entrance (satire)`, 'challenge', 1700, 0.05);
-          this.caption("UP'S POLITICAL SHOWDOWN!", bulldozer ? 'The bulldozer is a political symbol here — it only clears unoccupied road debris' : 'The cycle is a political symbol here — just a race', 'showdown', 1500, 1.8);
-          this.caption(bulldozer ? 'BULLDOZER CHASE — ESCAPE!' : 'CYCLE YATRA CHASE — ESCAPE!', 'Dodge everything until the timer runs out', 'chase', 1100, 3.3);
+          this.caption(bulldozer ? 'THE HERO ARRIVES!' : 'THE RIVAL ARRIVES!', `${rivalName} makes an entrance (satire)`, 'challenge', 1700, 0.05);
+          this.caption(
+            bulldozer ? 'GOVERNANCE SHOWDOWN!' : 'CYCLE YATRA SHOWDOWN!',
+            bulldozer ? 'A stylised bulldozer: a game symbol that only clears unoccupied road debris' : 'A giant campaign cycle: just a race',
+            'showdown',
+            1500,
+            1.8,
+          );
+          this.caption('ESCAPE!', sim.isRivalry ? 'Dodge everything and grab report cards until the timer runs out' : 'Dodge everything until the timer runs out', 'chase', 1100, 3.3);
           window.setTimeout(() => a.play('horn'), 2600);
         } else {
           a.play('horn');
-          this.caption(bulldozer ? 'THE BULLDOZER IS BACK!' : 'THE CYCLE IS BACK!', undefined, 'showdown', 1000, 0.05);
+          this.caption(bulldozer ? 'GOVERNANCE SHOWDOWN!' : 'THE CYCLE IS BACK!', undefined, 'showdown', 1000, 0.05);
           this.caption('ESCAPE!', undefined, 'chase', 800, 1.0);
         }
         break;
       }
       case 'chaseStart':
         this.emit({ type: 'clearCaptions' });
-        this.caption('GO!', 'Control is back — escape the chase', 'go', 900, 0);
+        this.caption('GO!', 'Control is back — escape the showdown', 'go', 900, 0);
         break;
       case 'chaseEnd':
         a.engine(false);
         if (e.success) {
           a.play('success');
-          this.caption('CHASE SURVIVED!', `+${e.bonus} bonus • route cleared ahead`, 'success', 1800, 0);
-          this.fx.confetti({ x: p.x, y: 2.5, z: -3 }, [0xffd23a, 0xff8c1a, 0x1f8a4c, 0xe8262c, 0x2d6cdf, 0xffffff], 70);
-          this.setTrack(sim.cfg.mode === 'B' ? 'chase' : sim.theme);
+          this.caption(sim.isRivalry ? 'STAGE CLEARED!' : 'CHASE SURVIVED!', `+${e.bonus} bonus • road cleared ahead`, 'success', 1800, 0);
+          this.fx.confetti({ x: p.x, y: 2.5, z: -3 }, [0xffd23a, 0xff8c1a, 0x1f8a4c, 0xffffff], 70);
+          this.setTrack(sim.theme);
         }
+        break;
+      case 'stageUp':
+        this.emit({ type: 'toast', text: `STAGE ${e.stage} UNLOCKED`, sub: 'Faster road, tougher challenges', tone: 'mission' });
         break;
       case 'cleared': {
         let n = 0;
@@ -897,6 +1045,17 @@ export class Engine {
           this.releaseObstacle(id, v);
         }
         if (n) a.play('poof');
+        break;
+      }
+      case 'bulldozed': {
+        // The helper bulldozer pushes unoccupied debris off the road.
+        for (const id of e.ids) {
+          const v = this.obstacleViews.get(id);
+          if (!v) continue;
+          this.fx.dust({ x: v.root.position.x, y: 0.4, z: v.root.position.z }, 6, 0xc9b79a);
+          this.knock(id, (v.root.position.x >= this.encounters.helperX ? 1 : -1) * 9);
+        }
+        if (e.ids.length) a.play('poof');
         break;
       }
       case 'crash':
@@ -928,19 +1087,37 @@ export class Engine {
         if (e.phase === 'start') {
           a.play('powerup');
           if (e.kind === 'vikas') this.caption('VIKAS EXPRESS!', 'A fictional flyover opens… for five seconds', 'info', 1400, 0);
-          else this.emit({ type: 'toast', text: 'VOTE MAGNET!', sub: 'Coins come to you for 8 s', tone: 'powerup' });
-        }
+          else if (e.kind === 'bulldozer') {
+            a.engine(true);
+            this.caption('BULLDOZER POWER-UP!', 'It clears unoccupied debris off the road ahead', 'info', 1500, 0);
+          } else this.emit({ type: 'toast', text: 'VOTE MAGNET!', sub: 'Coins come to you for 8 s', tone: 'powerup' });
+        } else if (e.kind === 'bulldozer' && sim.state !== 'CHASE' && sim.state !== 'CINEMATIC') a.engine(false);
         break;
       case 'token':
-        this.emit({
-          type: 'toast',
-          text: e.kind === 'chaseToken' ? `TIME TOKEN +${e.points}` : `CULTURAL TOKEN +${e.points}`,
-          sub: e.kind === 'chaseToken' ? 'Chase extended by 2.5 s (with 2× coins)' : undefined,
-          tone: 'bonus',
-        });
+        if (e.kind === 'chaseToken') this.emit({ type: 'toast', text: `TIME TOKEN +${e.points}`, sub: 'Showdown extended by 2.5 s (with 2× coins)', tone: 'bonus' });
+        else if (e.kind === 'reportCard') this.emit({ type: 'toast', text: `REPORT CARD +${e.points}`, sub: 'Performance noted!', tone: 'bonus' });
+        break;
+      case 'encounter':
+        this.onEncounter(e, sim);
+        break;
+      case 'levelComplete':
+        a.play('fanfare');
+        this.caption('LEVEL COMPLETE!', `${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)} • +${e.points}`, 'success', 2000, 0);
+        this.fx.confetti({ x: p.x, y: 3, z: -2 }, [0xff8c1a, 0xffffff, 0x1f8a4c, 0xffd23a], 90);
+        break;
+      case 'raceEnd':
+        if (e.won) {
+          a.play('fanfare');
+          this.caption('DEVELOPMENT RACE WON!', `Ahead by ${Math.max(0, e.margin)} m`, 'success', 2000, 0);
+          this.fx.confetti({ x: p.x, y: 3, z: -2 }, [0xff8c1a, 0xffffff, 0x1f8a4c, 0xffd23a], 90);
+        } else {
+          a.play('wrong');
+          this.caption('THE RIVAL FINISHED FIRST', `Behind by ${Math.max(0, e.margin)} m — collect more tokens for a boost`, 'warn', 2000, 0);
+        }
         break;
       case 'guard':
-        if (e.ready && sim.state === 'RUNNING') this.emit({ type: 'toast', text: 'STUMBLE GUARD READY', sub: 'Your next bump starts a chase instead of ending the run', tone: 'info' });
+        if (e.ready && sim.state === 'RUNNING')
+          this.emit({ type: 'toast', text: 'STUMBLE GUARD READY', sub: sim.hasChases ? 'Your next bump starts a showdown instead of ending the run' : 'Your next bump only slows you down', tone: 'info' });
         break;
       case 'hint':
         this.emit({ type: 'hint', text: HINTS[e.cls] });
@@ -950,6 +1127,54 @@ export class Engine {
         break;
       default:
         break;
+    }
+  }
+
+  private onEncounter(e: Extract<SimEvent, { type: 'encounter' }>, sim: Simulation): void {
+    const a = this.audio;
+    const enc = e.enc;
+    if (e.kind === 'quiz') {
+      const q = enc.quizId ? quizById(enc.quizId) : undefined;
+      if (!q) return;
+      if (e.phase === 'announce') {
+        a.play('warn');
+        this.caption('ACCOUNTABILITY GATE!', 'Run through the lane with the right answer', 'warn', 1500, 0);
+        return;
+      }
+      if (e.phase !== 'end') return;
+      const fact = factById(q.factId);
+      if (enc.correct) {
+        a.play('correct');
+        this.emit({ type: 'toast', text: `CORRECT! +${e.points}`, sub: `${LETTERS[q.answer]}) ${q.options[q.answer]}`, tone: 'bonus' });
+      } else {
+        a.play('wrong');
+        this.emit({ type: 'toast', text: 'NOT QUITE', sub: `Answer: ${LETTERS[q.answer]}) ${q.options[q.answer]}`, tone: 'warn' });
+      }
+      if (fact) this.emit({ type: 'factCard', factId: fact.id, heading: `${FACT_TYPE_LABEL[fact.type]} • ${fact.title}` });
+      return;
+    }
+    if (e.kind === 'redCap') {
+      if (e.phase === 'start') {
+        a.play('warn');
+        this.caption('RED CAP CHALLENGE!', `Outpace ${CHARACTERS[sim.cfg.rival].shortName} to the end of the stretch — no crashes!`, 'challenge', 1600, 0);
+      } else if (e.phase === 'end') {
+        if (!enc.failed) {
+          a.play('success');
+          this.emit({ type: 'toast', text: `CHALLENGE WON +${e.points}`, sub: 'Har challenge ka jawab — performance!', tone: 'bonus' });
+        } else this.emit({ type: 'toast', text: 'CHALLENGE LOST', sub: 'A stumble cost you the Red Cap Challenge', tone: 'warn' });
+      }
+      return;
+    }
+    if (e.kind === 'promises') {
+      if (e.phase === 'start') {
+        a.play('warn');
+        this.caption('PROMISES VS PERFORMANCE!', 'Deliver at least 60% of the promise scrolls', 'challenge', 1600, 0);
+      } else if (e.phase === 'end') {
+        if (!enc.failed) {
+          a.play('success');
+          this.emit({ type: 'toast', text: `PROMISES DELIVERED +${e.points}`, sub: `${enc.got}/${enc.total} delivered`, tone: 'bonus' });
+        } else this.emit({ type: 'toast', text: 'PROMISES UNDELIVERED', sub: `${enc.got}/${enc.total} — promises are easy, delivery is the challenge!`, tone: 'warn' });
+      }
     }
   }
 
@@ -970,23 +1195,28 @@ export class Engine {
       this.emit({
         type: 'infoCard',
         title: 'GAME SCENARIO (FICTIONAL): DEVELOPMENT ROUTE',
-        body: 'The made-up "Vikas Path" flyover in this made-up city has been "opening soon" for years. Expect cones, barriers and extra coins. Satire — not a claim about any real project.',
+        body: 'A made-up "Vikas Path" is under construction in this made-up city. Expect cones, barriers and extra coins. Fictional — not a claim about any real project.',
       });
     }
   }
 
-  private finishRun(summary: NonNullable<Simulation['summary']>, show: boolean): void {
+  private finishRun(summary: RunSummary, show: boolean): void {
     if (this.gameOverSent || !this.sim) return;
     this.gameOverSent = true;
     const progress: Record<string, number> = {};
     for (const m of this.sim.missions) progress[m.def.id] = this.sim.missionProgress(m);
-    let info = { newBest: false, previousBest: 0, coinsEarned: summary.coins, missionRewards: 0, unlockedNow: [] as string[] };
+    let info!: RunResultInfo;
     this.save.update((d) => {
       info = applyRun(d, summary, progress);
     });
     this.input.enabled = false;
     this.audio.engine(false);
-    if (show) this.emit({ type: 'gameOver', summary, info });
+    if (!show) return;
+    // A short victory beat before the reward screen.
+    if (summary.level?.completed || summary.race) {
+      this.pendingResult = { summary, info };
+      this.celebrateT = CELEBRATION;
+    } else this.emit({ type: 'gameOver', summary, info });
   }
 
   // ----------------------------------------------------------- performance
@@ -1047,6 +1277,6 @@ export class Engine {
   }
 
   get themeName(): string {
-    return this.sim ? THEME_NAMES[this.sim.theme] : THEME_NAMES[this.save.data.startRoute as ThemeId];
+    return this.sim ? THEME_NAMES[this.sim.theme] : THEME_NAMES[this.save.data.startRoute];
   }
 }

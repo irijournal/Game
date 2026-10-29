@@ -1,19 +1,40 @@
 import { useState } from 'react';
+import { factById, FACT_TYPE_LABEL, type Fact } from '../content/facts';
+import { LEVELS, levelById, type LevelDef, type LevelId } from '../content/levels';
+import { GAME_SUBTITLE, GAME_TITLE, TAGLINE } from '../content/slogans';
 import type { StartOptions } from '../engine/Engine';
-import { activeMissions, priceOf, purchase, type SaveData } from '../save/save';
+import { activeMissions, levelUnlocked, priceOf, purchase, routeUnlocked, totalStars, type SaveData } from '../save/save';
 import { CHARACTERS, CHARACTER_ORDER, ROUTES, RUN_STYLES, TRAILS, type CosmeticDef } from '../sim/characters';
+import { RACE_LENGTH } from '../sim/constants';
 import { dayKey } from '../sim/missions';
-import { THEME_NAMES } from '../sim/themes';
-import type { CharacterId, ThemeId } from '../sim/types';
+import { THEME_INSPIRATION, THEME_NAMES } from '../sim/themes';
+import type { CharacterId, EncounterKind } from '../sim/types';
 import type { Screen } from './App';
+import { DISCLAIMER, SCORE_NOTE, SHORT_DISCLAIMER } from './disclaimer';
 import { saveStore, updateSave, useSave } from './store';
-import { DISCLAIMER, SHORT_DISCLAIMER } from './disclaimer';
 
 type Go = (s: Screen) => void;
 
-function fmt(n: number): string {
+export function fmt(n: number): string {
   return Math.floor(n).toLocaleString('en-IN');
 }
+
+/** The hero who runs campaign levels and races (the rival only runs Rivalry Mode). */
+export function heroFor(save: SaveData): CharacterId {
+  const id = save.selectedCharacter;
+  return CHARACTERS[id].role === 'hero' && save.unlocked.includes('char.' + id) ? id : 'yogi';
+}
+
+export function nextLevel(save: SaveData): LevelDef {
+  return LEVELS.find((l) => !save.levels[l.id].completed) ?? LEVELS[LEVELS.length - 1];
+}
+
+export const ENCOUNTER_LABEL: Record<EncounterKind, string> = {
+  quiz: '✅ Accountability Gate',
+  bulldozer: '🚜 Bulldozer power-up',
+  redCap: '🧢 Red Cap Challenge',
+  promises: '📜 Promises vs Performance',
+};
 
 function CoinPill({ coins }: { coins: number }) {
   return (
@@ -37,31 +58,89 @@ function Header({ title, go, back = 'menu' }: { title: string; go: Go; back?: Sc
   );
 }
 
+export function Stars({ n, of = 3, big = false }: { n: number; of?: number; big?: boolean }) {
+  return (
+    <span className={`stars ${big ? 'big' : ''}`} aria-label={`${n} of ${of} stars`}>
+      {Array.from({ length: of }, (_, i) => (
+        <span key={i} className={i < n ? 'on' : ''}>
+          ★
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export function FactTypeBadge({ type }: { type: Fact['type'] }) {
+  return <span className={`fact-type ${type}`}>{FACT_TYPE_LABEL[type]}</span>;
+}
+
+export function FactCard({ fact, open = false }: { fact: Fact; open?: boolean }) {
+  const [more, setMore] = useState(open);
+  return (
+    <div className={`card fact-card ${fact.type}`}>
+      <div className="fact-head">
+        <b>{fact.title}</b>
+        <FactTypeBadge type={fact.type} />
+      </div>
+      <p>{fact.text}</p>
+      {fact.note && <p className="fact-note">{fact.note}</p>}
+      {fact.sources.length > 0 && (
+        <button className="link" onClick={() => setMore((v) => !v)}>
+          {more ? 'Hide sources' : `Sources (${fact.sources.length})`}
+        </button>
+      )}
+      {more && (
+        <ul className="sources">
+          {fact.sources.map((s) => (
+            <li key={s.url}>
+              <a href={s.url} target="_blank" rel="noopener noreferrer">
+                {s.publisher}: {s.title}
+              </a>
+              {s.date && <small> • {s.date}</small>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Brand({ small = false }: { small?: boolean }) {
+  return (
+    <div className={`brand ${small ? 'small' : ''}`}>
+      <div className={`logo ${small ? 'small' : ''}`}>{GAME_TITLE}</div>
+      <div className="brand-sub">{GAME_SUBTITLE}</div>
+    </div>
+  );
+}
+
 export function TitleScreen({ onStart, onMenu }: { onStart: () => void; onMenu: () => void }) {
+  const save = useSave();
+  const lv = nextLevel(save);
   return (
     <div className="panel-screen title-screen">
       <div className="title-block">
-        <div className="logo">UP RUN</div>
-        <div className="subtitle">Uttar Pradesh: The Great Political Run</div>
+        <Brand />
+        <div className="subtitle">{TAGLINE}</div>
       </div>
       <div className="tutorial card">
         <h3>How to play</h3>
         <ul>
           <li>
-            <b>Swipe ← →</b> or press <kbd>←</kbd> <kbd>→</kbd> to change lanes
+            <b>Swipe ← →</b> or press <kbd>←</kbd> <kbd>→</kbd> (<kbd>A</kbd> <kbd>D</kbd>) to change lanes
           </li>
           <li>
             <b>Swipe ↑</b> or press <kbd>Space</kbd> / <kbd>↑</kbd> to jump
           </li>
           <li>
-            <b>Swipe ↓</b> or press <kbd>↓</kbd> to slide
+            <b>Swipe ↓</b> or press <kbd>↓</kbd> / <kbd>S</kbd> to slide • <kbd>Esc</kbd> pauses
           </li>
-          <li>Collect coins, avoid obstacles, survive as long as you can.</li>
+          <li>Collect development tokens, reach the finish line and earn up to 3 stars per level.</li>
         </ul>
       </div>
       <div className="title-actions">
         <button className="btn primary huge" onClick={onStart} autoFocus>
-          ▶ START
+          ▶ PLAY LEVEL {lv.num}
         </button>
         <button className="btn ghost" onClick={onMenu}>
           Main menu
@@ -75,10 +154,11 @@ export function TitleScreen({ onStart, onMenu }: { onStart: () => void; onMenu: 
 export function MenuScreen({ go }: { go: Go }) {
   const save = useSave();
   const def = CHARACTERS[save.selectedCharacter];
+  const done = LEVELS.filter((l) => save.levels[l.id].completed).length;
   return (
     <div className="panel-screen menu-screen">
       <div className="menu-top">
-        <div className="logo small">UP RUN</div>
+        <Brand small />
         <CoinPill coins={save.coins} />
       </div>
       <div className="menu-side">
@@ -86,21 +166,30 @@ export function MenuScreen({ go }: { go: Go }) {
           <span>{def.name}</span>
           {def.fictional && <em> (fictional)</em>}
         </div>
-        <button className="btn primary huge" onClick={() => go('modes')}>
-          ▶ START GAME
+        <button className="btn primary huge" onClick={() => go('campaign')}>
+          ▶ CAMPAIGN <small className="btn-sub">{done}/8 levels • ★ {totalStars(save)}/24</small>
         </button>
         <div className="menu-grid">
+          <button className="btn" onClick={() => go('modes')}>
+            🧢 Rivalry • Race • Free Run
+          </button>
+          <button className="btn" onClick={() => go('debate')}>
+            🎤 Debate Arena
+          </button>
+          <button className="btn" onClick={() => go('board')}>
+            🏅 Achievements &amp; Facts
+          </button>
+          <button className="btn" onClick={() => go('scores')}>
+            📊 Scoreboard
+          </button>
           <button className="btn" onClick={() => go('characters')}>
-            🧢 Select Character
+            👤 Characters
           </button>
           <button className="btn" onClick={() => go('missions')}>
             🎯 Missions
           </button>
           <button className="btn" onClick={() => go('shop')}>
             🛍 Unlocks
-          </button>
-          <button className="btn" onClick={() => go('scores')}>
-            🏆 High Score <b>{fmt(save.best.overall)}</b>
           </button>
           <button className="btn" onClick={() => go('settings')}>
             ⚙ Settings
@@ -112,40 +201,137 @@ export function MenuScreen({ go }: { go: Go }) {
   );
 }
 
+export function CampaignScreen({ go, pick }: { go: Go; pick: (id: LevelId) => void }) {
+  const save = useSave();
+  return (
+    <div className="panel-screen">
+      <Header title="Campaign" go={go} />
+      <div className="list">
+        <div className="card campaign-summary">
+          <b>Eight levels across a fictionalised Uttar Pradesh</b>
+          <span>
+            ★ {totalStars(save)}/24 • Badges {save.badges.length}/8
+          </span>
+        </div>
+        <div className="level-map">
+          {LEVELS.map((l) => {
+            const p = save.levels[l.id];
+            const open = levelUnlocked(save, l.id);
+            return (
+              <button key={l.id} className={`card level-card ${open ? '' : 'locked'} ${p.completed ? 'done' : ''}`} onClick={() => open && pick(l.id)} disabled={!open} aria-label={`Level ${l.num}: ${l.name}${open ? '' : ' (locked)'}`}>
+                <span className="level-num">{l.num}</span>
+                <span className="level-main">
+                  <b>{l.name}</b>
+                  <small>
+                    {l.topic} • {THEME_NAMES[l.id]}
+                  </small>
+                </span>
+                <span className="level-side">
+                  {open ? <Stars n={p.stars} /> : <span className="lock-ico">🔒</span>}
+                  <small>{open ? (p.completed ? `${l.badge.icon} ${l.badge.name}` : `${fmt(l.length)} m`) : `Finish level ${l.num - 1}`}</small>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="muted center">Environments are fictionalised and inspired by real places; they are not documentary depictions.</p>
+      </div>
+    </div>
+  );
+}
+
+export function LevelIntroScreen({ go, level, start }: { go: Go; level: LevelId; start: (o: StartOptions) => void }) {
+  const save = useSave();
+  const l = levelById(level)!;
+  const p = save.levels[l.id];
+  const hero = heroFor(save);
+  const facts = l.facts.map((id) => factById(id)).filter((f): f is Fact => !!f);
+  return (
+    <div className="panel-screen">
+      <Header title={`Level ${l.num}`} go={go} back="campaign" />
+      <div className="list">
+        <div className="card level-intro">
+          <div className="level-intro-head">
+            <div>
+              <h3>{l.name}</h3>
+              <small className="muted">{THEME_INSPIRATION[l.id]} — a fictionalised setting.</small>
+            </div>
+            <Stars n={p.stars} big />
+          </div>
+          <p className="mission-text">🎯 {l.mission}</p>
+          <ul className="level-facts">
+            <li>
+              Collect <b>{l.tokenGoal}</b> {l.tokenName} • reach the finish at <b>{fmt(l.length)} m</b>
+            </li>
+            <li>{l.events.map((e) => ENCOUNTER_LABEL[e.kind]).filter((v, i, a) => a.indexOf(v) === i).join(' • ')}</li>
+            <li>
+              ★ finish • ★★ + token goal • ★★★ + no collisions
+            </li>
+            <li>
+              Reward: {l.badge.icon} <b>{l.badge.name}</b> — {l.badge.perkText}
+            </li>
+          </ul>
+          <p className="slogan">“{l.slogan}” <small>(game slogan)</small></p>
+          <div className="row">
+            <button className="btn primary huge" onClick={() => start({ mode: 'campaign', level: l.id, character: hero })} autoFocus>
+              ▶ START AS {CHARACTERS[hero].shortName.toUpperCase()}
+            </button>
+          </div>
+          {p.best > 0 && <p className="muted center">Best {fmt(p.best)} • tokens {p.tokens}/{l.tokenGoal}</p>}
+        </div>
+        <h3 className="section-title">Real-world context</h3>
+        {facts.map((f) => (
+          <FactCard key={f.id} fact={f} />
+        ))}
+        <p className="muted center">{SCORE_NOTE}</p>
+      </div>
+    </div>
+  );
+}
+
 export function ModeScreen({ go, start }: { go: Go; start: (o: StartOptions) => void }) {
   const save = useSave();
   const unlocked = CHARACTER_ORDER.filter((id) => save.unlocked.includes('char.' + id));
-  const [pick, setPick] = useState<CharacterId>(unlocked.includes(save.selectedCharacter) ? save.selectedCharacter : 'akhilesh');
+  const [pick, setPick] = useState<CharacterId>(unlocked.includes(save.selectedCharacter) ? save.selectedCharacter : 'yogi');
+  const hero = heroFor(save);
   return (
     <div className="panel-screen">
-      <Header title="Choose a mode" go={go} />
+      <Header title="Play modes" go={go} />
       <div className="mode-list">
         <div className="card mode-card">
-          <div className="mode-tag">MODE A</div>
-          <h3>Political Run</h3>
-          <p>Play as Akhilesh Yadav through a fictional Uttar Pradesh. Fill the satirical Gundaraj Meter — or stumble — and a rival makes an entrance.</p>
+          <div className="mode-tag red">RIVALRY MODE</div>
+          <h3>The Red Cap Run</h3>
+          <p>
+            Play as the Akhilesh Yadav-inspired rival. A <b>Political Challenge</b> waits ahead: you stumble, the Yogi Adityanath-inspired hero makes an entrance with a stylised bulldozer, and the <b>Governance Showdown</b> begins. Dodge and grab report cards until the timer runs out to clear each stage.
+          </p>
           <div className="mode-foot">
-            <span>Best {fmt(save.best.A)}</span>
-            <button className="btn primary" onClick={() => start({ mode: 'A', character: 'akhilesh' })}>
-              Run ▸
+            <span>
+              Best stage {save.stats.bestStage} • Best {fmt(save.best.rivalry)}
+            </span>
+            <button className="btn primary" onClick={() => start({ mode: 'rivalry', character: 'akhilesh' })}>
+              Play rivalry ▸
             </button>
           </div>
         </div>
         <div className="card mode-card">
-          <div className="mode-tag saffron">MODE B</div>
-          <h3>Bulldozer Chase</h3>
-          <p>A 30-second chase challenge featuring Yogi Adityanath and a stylised bulldozer. Dodge to escape — nobody gets hurt.</p>
+          <div className="mode-tag saffron">DEVELOPMENT RACE</div>
+          <h3>Race for roads, jobs and services</h3>
+          <p>
+            {CHARACTERS[hero].shortName} races the rival over {fmt(RACE_LENGTH)} m on parallel lanes. Every development token is a +3 m boost; a stumble costs time. First to the finish wins.
+          </p>
           <div className="mode-foot">
-            <span>Best {fmt(save.best.B)}</span>
-            <button className="btn primary" onClick={() => start({ mode: 'B', character: 'akhilesh' })}>
-              Chase ▸
+            <span>
+              Races won {save.stats.racesWon} • Best {fmt(save.best.race)}
+            </span>
+            <button className="btn primary" onClick={() => start({ mode: 'race', character: hero })}>
+              Race ▸
             </button>
           </div>
         </div>
         <div className="card mode-card">
-          <div className="mode-tag blue">MODE C</div>
-          <h3>Political Showdown</h3>
-          <p>Pick your runner. Same rules, same course of the day for everyone — compare who goes further.</p>
+          <div className="mode-tag green">FREE RUN</div>
+          <h3>Endless run</h3>
+          <p>Environments rotate every 750 m, with Accountability Gates, rival challenges and power-ups along the way. Unlock more start routes in the campaign.</p>
           <div className="seg" role="radiogroup" aria-label="Runner">
             {unlocked.map((id) => (
               <button key={id} role="radio" aria-checked={pick === id} className={pick === id ? 'on' : ''} onClick={() => setPick(id)}>
@@ -155,10 +341,10 @@ export function ModeScreen({ go, start }: { go: Go; start: (o: StartOptions) => 
           </div>
           <div className="mode-foot">
             <span>
-              Today: {unlocked.map((id) => `${CHARACTERS[id].shortName} ${fmt(save.showdown.best[id])}`).join(' • ')}
+              From {THEME_NAMES[save.startRoute]} • Best {fmt(save.best.free)}
             </span>
-            <button className="btn primary" onClick={() => start({ mode: 'C', character: pick })}>
-              Showdown ▸
+            <button className="btn primary" onClick={() => start({ mode: 'free', character: pick })}>
+              Run ▸
             </button>
           </div>
         </div>
@@ -192,9 +378,10 @@ export function CharacterScreen({ go, preview }: { go: Go; preview: (id: Charact
     updateSave((d) => (d.equipped[id].outfit = outfitId));
     preview(id);
   };
+  const role = def.role === 'hero' ? 'Hero: runs the campaign, Development Race and Free Run.' : 'Rival: played in Rivalry Mode and Free Run.';
   return (
     <div className="panel-screen char-screen">
-      <Header title="Select character" go={go} />
+      <Header title="Characters" go={go} />
       <div className="char-body">
         <div className="char-nav">
           <button className="btn icon big" onClick={() => move(-1)} aria-label="Previous character">
@@ -207,12 +394,10 @@ export function CharacterScreen({ go, preview }: { go: Go; preview: (id: Charact
         <div className="card char-card" style={{ borderColor: def.accent }}>
           <h3>
             {def.name}
-            {def.fictional && <span className="tag">fictional</span>}
+            {def.fictional ? <span className="tag">fictional</span> : <span className="tag inspired">caricature</span>}
           </h3>
           <p>{def.description}</p>
-          <p className="muted">
-            Rival entrance: <b>{CHARACTERS[def.rival].name}</b> with the {CHARACTERS[def.rival].vehicle === 'bulldozer' ? 'bulldozer' : 'giant cycle'}.
-          </p>
+          <p className="muted">{role}</p>
           {!owned && def.unlock.kind === 'distance' && (
             <p className="lock">
               🔒 Run {fmt(def.unlock.metres)} m in one run, or{' '}
@@ -226,12 +411,7 @@ export function CharacterScreen({ go, preview }: { go: Go; preview: (id: Charact
               const has = save.unlocked.includes(o.id);
               const on = save.equipped[id].outfit === o.id;
               return (
-                <button
-                  key={o.id}
-                  className={`chip ${on ? 'on' : ''}`}
-                  onClick={() => (has ? equipOutfit(o.id) : buy(o.id) && equipOutfit(o.id))}
-                  disabled={!owned}
-                >
+                <button key={o.id} className={`chip ${on ? 'on' : ''}`} onClick={() => (has ? equipOutfit(o.id) : buy(o.id) && equipOutfit(o.id))} disabled={!owned}>
                   {o.name} {has ? (on ? '✓' : '') : `₹${o.price}`}
                 </button>
               );
@@ -243,7 +423,7 @@ export function CharacterScreen({ go, preview }: { go: Go; preview: (id: Charact
             disabled={!owned || save.selectedCharacter === id}
             onClick={() => {
               updateSave((d) => (d.selectedCharacter = id));
-              setMsg(`${def.shortName} selected for Political Showdown.`);
+              setMsg(def.role === 'hero' ? `${def.shortName} will run your levels, races and free runs.` : `${def.shortName} selected for Free Run (campaign levels use a hero).`);
             }}
           >
             {save.selectedCharacter === id ? 'Selected ✓' : owned ? 'Select' : 'Locked'}
@@ -285,11 +465,13 @@ export function MissionsScreen({ go }: { go: Go }) {
   );
 }
 
-function ShopRow({ item, owned, equipped, onBuy, onEquip }: { item: CosmeticDef; owned: boolean; equipped: boolean; onBuy: () => void; onEquip: () => void }) {
+function ShopRow({ item, owned, equipped, onBuy, onEquip, lockText }: { item: CosmeticDef; owned: boolean; equipped: boolean; onBuy: () => void; onEquip: () => void; lockText?: string }) {
   return (
     <div className="card shop-row">
       <span>{item.name}</span>
-      {owned ? (
+      {lockText ? (
+        <span className="muted">🔒 {lockText}</span>
+      ) : owned ? (
         <button className={`btn small ${equipped ? 'on' : ''}`} onClick={onEquip} disabled={equipped}>
           {equipped ? 'Equipped ✓' : 'Equip'}
         </button>
@@ -314,14 +496,18 @@ export function ShopScreen({ go, refreshPreview }: { go: Go; refreshPreview: () 
   };
   const items = tab === 'trail' ? TRAILS : tab === 'runStyle' ? RUN_STYLES : tab === 'route' ? ROUTES : [];
   const isEquipped = (it: CosmeticDef) =>
-    it.kind === 'trail' ? save.equipped[char].trail === it.id : it.kind === 'runStyle' ? save.equipped[char].runStyle === it.id : 'route.' + save.startRoute === it.id;
+    it.kind === 'trail' ? save.equipped[char].trail === it.id : it.kind === 'runStyle' ? save.equipped[char].runStyle === it.id : save.startRoute === it.theme;
   const equip = (it: CosmeticDef) => {
     updateSave((d) => {
       if (it.kind === 'trail') d.equipped[char].trail = it.id;
       else if (it.kind === 'runStyle') d.equipped[char].runStyle = it.id;
-      else d.startRoute = it.id.replace('route.', '') as ThemeId;
+      else if (it.theme) d.startRoute = it.theme;
     });
     refreshPreview();
+  };
+  const routeLock = (it: CosmeticDef) => {
+    if (it.kind !== 'route' || !it.theme || routeUnlocked(save, it.theme)) return undefined;
+    return `Finish level ${levelById(it.theme)?.num}`;
   };
   return (
     <div className="panel-screen">
@@ -342,9 +528,17 @@ export function ShopScreen({ go, refreshPreview }: { go: Go; refreshPreview: () 
       </div>
       <div className="list">
         {tab !== 'route' && tab !== 'chars' && <p className="muted center">Applies to {CHARACTERS[char].name}. Cosmetic only — gameplay is identical.</p>}
-        {tab === 'route' && <p className="muted center">Choose where Political Run starts (Showdown always uses the shared course). Routes rotate every 750 m.</p>}
+        {tab === 'route' && <p className="muted center">Where Free Run and the Development Race start. Each route unlocks when you finish its campaign level.</p>}
         {items.map((it) => (
-          <ShopRow key={it.id} item={it} owned={save.unlocked.includes(it.id)} equipped={isEquipped(it)} onBuy={() => buy(it.id)} onEquip={() => equip(it)} />
+          <ShopRow
+            key={it.id}
+            item={it}
+            owned={it.kind === 'route' || save.unlocked.includes(it.id)}
+            equipped={isEquipped(it)}
+            lockText={routeLock(it)}
+            onBuy={() => buy(it.id)}
+            onEquip={() => equip(it)}
+          />
         ))}
         {tab === 'chars' &&
           CHARACTER_ORDER.map((id) => {
@@ -355,12 +549,18 @@ export function ShopScreen({ go, refreshPreview }: { go: Go; refreshPreview: () 
                   {CHARACTERS[id].name}
                   {CHARACTERS[id].fictional ? ' (fictional)' : ''}
                 </span>
-                {owned ? <span className="muted">Owned ✓</span> : <button className="btn small primary" onClick={() => buy('char.' + id)}>₹{fmt(priceOf('char.' + id))}</button>}
+                {owned ? (
+                  <span className="muted">Owned ✓</span>
+                ) : (
+                  <button className="btn small primary" onClick={() => buy('char.' + id)}>
+                    ₹{fmt(priceOf('char.' + id))}
+                  </button>
+                )}
               </div>
             );
           })}
         {msg && <p className="msg center">{msg}</p>}
-        <p className="muted center">The core game is free. No real-money purchases.</p>
+        <p className="muted center">The game is free. No real-money purchases.</p>
       </div>
     </div>
   );
@@ -369,63 +569,55 @@ export function ShopScreen({ go, refreshPreview }: { go: Go; refreshPreview: () 
 export function ScoresScreen({ go }: { go: Go }) {
   const save = useSave();
   const s = save.stats;
+  const done = LEVELS.filter((l) => save.levels[l.id].completed).length;
+  const row = (label: string, value: string) => (
+    <div>
+      <span>{label}</span>
+      <b>{value}</b>
+    </div>
+  );
   return (
     <div className="panel-screen">
-      <Header title="High scores" go={go} />
+      <Header title="Scoreboard" go={go} />
       <div className="list">
-        <div className="card stats">
-          <div>
-            <span>Best overall</span>
-            <b>{fmt(save.best.overall)}</b>
-          </div>
-          <div>
-            <span>Political Run</span>
-            <b>{fmt(save.best.A)}</b>
-          </div>
-          <div>
-            <span>Bulldozer Chase</span>
-            <b>{fmt(save.best.B)}</b>
-          </div>
-          <div>
-            <span>Political Showdown</span>
-            <b>{fmt(save.best.C)}</b>
-          </div>
-          <div>
-            <span>Longest run</span>
-            <b>{fmt(save.bestDistance)} m</b>
-          </div>
+        <div className="card scoreboard-head">
+          <b>Performance is the real scoreboard</b>
+          <small>{SCORE_NOTE}</small>
         </div>
         <div className="card stats">
-          <h3>Today's showdown course</h3>
-          {CHARACTER_ORDER.filter((id) => save.unlocked.includes('char.' + id)).map((id) => (
-            <div key={id}>
-              <span>{CHARACTERS[id].name}</span>
-              <b>{fmt(save.showdown.best[id])}</b>
-            </div>
-          ))}
+          <h3>Personal bests</h3>
+          {row('Best overall', fmt(save.best.overall))}
+          {row('Campaign', fmt(save.best.campaign))}
+          {row('Rivalry Mode', fmt(save.best.rivalry))}
+          {row('Development Race', fmt(save.best.race))}
+          {row('Free Run', fmt(save.best.free))}
+          {row('Longest run', `${fmt(save.bestDistance)} m`)}
+        </div>
+        <div className="card stats">
+          <h3>Development record</h3>
+          {row('Levels completed', `${done} / 8`)}
+          {row('Stars', `${totalStars(save)} / 24`)}
+          {row('Development tokens', fmt(s.devTokens))}
+          {row('Missions completed', fmt(s.missionsCompleted))}
+          {row('Obstacles avoided', fmt(s.obstaclesAvoided))}
+          {row('Debris cleared by the bulldozer', fmt(s.roadsCleared))}
+          {row('Promises delivered', fmt(s.promisesDelivered))}
+        </div>
+        <div className="card stats">
+          <h3>Rivalry record</h3>
+          {row('Red Cap Challenges won', fmt(s.rivalWins))}
+          {row('Accountability Gates passed', `${fmt(s.quizCorrect)} / ${fmt(s.quizAnswered)}`)}
+          {row('Debates won', fmt(s.debatesWon))}
+          {row('Development Races won', fmt(s.racesWon))}
+          {row('Best Rivalry stage', fmt(s.bestStage))}
+          {row('Showdowns survived', fmt(s.chasesSurvived))}
         </div>
         <div className="card stats">
           <h3>Lifetime</h3>
-          <div>
-            <span>Runs</span>
-            <b>{fmt(s.runs)}</b>
-          </div>
-          <div>
-            <span>Distance</span>
-            <b>{fmt(s.totalDistance)} m</b>
-          </div>
-          <div>
-            <span>Coins collected</span>
-            <b>{fmt(s.totalCoins)}</b>
-          </div>
-          <div>
-            <span>Chases survived</span>
-            <b>{fmt(s.chasesSurvived)}</b>
-          </div>
-          <div>
-            <span>Routes discovered</span>
-            <b>{save.discovered.map((t) => THEME_NAMES[t]).join(', ')}</b>
-          </div>
+          {row('Runs', fmt(s.runs))}
+          {row('Distance', `${fmt(s.totalDistance)} m`)}
+          {row('Coins collected', fmt(s.totalCoins))}
+          {row('Routes discovered', save.discovered.map((t) => THEME_NAMES[t]).join(', '))}
         </div>
         <p className="muted center">Scores are stored on this device only. There is no global leaderboard.</p>
       </div>
@@ -456,8 +648,9 @@ export function SettingsScreen({ go, replayIntro, persistent, storageError }: { 
       <div className="list">
         <Toggle label="Music" value={s.music} onChange={(v) => set((d) => (d.settings.music = v))} />
         <Toggle label="Sound effects" value={s.sfx} onChange={(v) => set((d) => (d.settings.sfx = v))} />
+        <Toggle label="On-screen touch buttons" hint="◀ ▲ ▼ ▶ buttons in addition to swipes" value={s.touchButtons} onChange={(v) => set((d) => (d.settings.touchButtons = v))} />
         <Toggle label="Reduced motion" hint="No screen shake, fewer particles" value={s.reducedMotion} onChange={(v) => set((d) => (d.settings.reducedMotion = v))} />
-        <Toggle label="Short cinematics" hint="Always use the quick rival entrance" value={s.shortCinematics} onChange={(v) => set((d) => (d.settings.shortCinematics = v))} />
+        <Toggle label="Short cinematics" hint="Always use the quick hero entrance" value={s.shortCinematics} onChange={(v) => set((d) => (d.settings.shortCinematics = v))} />
         <div className="card toggle">
           <span>Graphics quality</span>
           <div className="seg">
@@ -480,7 +673,7 @@ export function SettingsScreen({ go, replayIntro, persistent, storageError }: { 
           </button>
         ) : (
           <div className="card confirm">
-            <p>Erase coins, unlocks, scores and missions on this device?</p>
+            <p>Erase coins, levels, badges, unlocks, scores and missions on this device?</p>
             <div className="row">
               <button className="btn" onClick={() => setConfirmReset(false)}>
                 Cancel
@@ -500,7 +693,10 @@ export function SettingsScreen({ go, replayIntro, persistent, storageError }: { 
         <div className="card credits">
           <h3>About</h3>
           <p>{DISCLAIMER}</p>
-          <p>All 3D models are generated in code; all music and sound effects are synthesised in your browser. No official logos or party symbols are used as branding. No personal data is collected; progress stays in this browser.</p>
+          <p>
+            Political symbols: the game uses saffron, white and green colours but no party logos, election symbols or official emblems, and it does not imply any endorsement. The bulldozer is a stylised game symbol: it never touches a person, never demolishes a home, and only pushes unoccupied debris off the road.
+          </p>
+          <p>All 3D models are generated in code; all music and sound effects are synthesised in your browser. No personal data is collected; progress stays in this browser.</p>
         </div>
       </div>
     </div>

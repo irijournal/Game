@@ -1,9 +1,9 @@
 import { LANE_CHANGE_TIME, LANE_X, PLAYER_HALF_D } from './constants';
 import { OBSTACLES, THEME_OBSTACLES, type ClassWeights } from './obstacles';
 import type { Rng } from './rng';
-import type { Lane, ObstacleClass, ObstacleKind, PickupKind, Row, RowCell, ThemeId } from './types';
+import type { Lane, ObstacleClass, ObstacleKind, PickupKind, Row, RowCell, ThemeId, TokenVariant } from './types';
 
-export type ChunkKind = 'normal' | 'chase' | 'development' | 'coinRush';
+export type ChunkKind = 'normal' | 'chase' | 'development' | 'coinRush' | 'redCap' | 'promises';
 
 export interface GenContext {
   kind: ChunkKind;
@@ -121,9 +121,20 @@ export function validateRows(
 }
 
 function weightsFor(ctx: GenContext): ClassWeights {
-  if (ctx.kind === 'chase') return THEME_OBSTACLES.chase;
-  if (ctx.kind === 'development') return THEME_OBSTACLES.development;
-  return THEME_OBSTACLES[ctx.theme];
+  switch (ctx.kind) {
+    case 'chase':
+    case 'development':
+    case 'redCap':
+    case 'promises':
+      return THEME_OBSTACLES[ctx.kind];
+    default:
+      return THEME_OBSTACLES[ctx.theme];
+  }
+}
+
+/** Special courses use their whole obstacle set; normal runs introduce kinds gradually. */
+function gated(ctx: GenContext): boolean {
+  return ctx.kind === 'normal' || ctx.kind === 'coinRush' || ctx.kind === 'development';
 }
 
 function allowedKinds(ctx: GenContext, cls: ObstacleClass): Partial<Record<ObstacleKind, number>> {
@@ -132,7 +143,7 @@ function allowedKinds(ctx: GenContext, cls: ObstacleClass): Partial<Record<Obsta
   for (const k in w) {
     const kind = k as ObstacleKind;
     const def = OBSTACLES[kind];
-    const ok = ctx.kind === 'chase' ? true : def.introAt <= ctx.distance;
+    const ok = gated(ctx) ? def.introAt <= ctx.distance : def.introAt !== Infinity || ctx.kind === 'chase';
     if (ok) out[kind] = w[kind];
   }
   return out;
@@ -154,7 +165,7 @@ export function pickKind(rng: Rng, ctx: GenContext, cls: ObstacleClass): Obstacl
 
 export function pickTemplate(rng: Rng, ctx: GenContext): string {
   if (ctx.kind === 'coinRush') return rng.pick(COIN_RUSH);
-  const d = ctx.diff;
+  const d = ctx.kind === 'redCap' ? Math.min(1, ctx.diff + 0.35) : ctx.diff;
   const w1 = 0.8 - 0.55 * d;
   const w3 = 0.3 * d;
   const r = rng.next();
@@ -180,7 +191,8 @@ function makeCells(rng: Rng, ctx: GenContext, template: string): [RowCell, RowCe
 
 export function rowGapTime(ctx: GenContext): number {
   if (ctx.kind === 'chase') return 1.5 - 0.5 * ctx.diff;
-  if (ctx.kind === 'coinRush') return 1.6;
+  if (ctx.kind === 'coinRush' || ctx.kind === 'promises') return 1.5;
+  if (ctx.kind === 'redCap') return 1.15 - 0.25 * ctx.diff;
   return 1.35 - 0.47 * ctx.diff;
 }
 
@@ -228,6 +240,7 @@ export function buildChunk(rng: Rng, ctx: GenContext, startS: number): Row[] {
 
 export interface PickupSpec {
   kind: PickupKind;
+  variant?: TokenVariant | null;
   s: number;
   lane: Lane;
   x: number;

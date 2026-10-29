@@ -99,7 +99,7 @@ describe('event director', () => {
   });
 
   it('discovering a new environment awards a bonus once', () => {
-    const sim = new Simulation(baseConfig({ seed: 12, discovered: ['lucknow'] }));
+    const sim = new Simulation(baseConfig({ seed: 12, discovered: ['lawandorder'] }));
     const ev = run(sim, 75, new Autopilot());
     if (sim.d < 760) return; // bot crashed early; covered elsewhere
     const disc = ev.filter((e) => e.type === 'discovery');

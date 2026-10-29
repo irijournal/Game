@@ -1,6 +1,7 @@
 // Obstacle gallery: ?kinds=a,b,c renders those kinds side by side.
 import * as THREE from 'three';
 import { ObstaclePool } from '../src/engine/view/obstacleViews';
+import { OBSTACLES } from '../src/sim/obstacles';
 import { buildBulldozer, buildCycle } from '../src/engine/view/vehicles';
 import type { ObstacleKind } from '../src/sim/types';
 
@@ -33,7 +34,7 @@ kinds.forEach((k, i) => {
   v.root.position.set(x, 0, 0);
   v.tick?.(0.1, 0);
   scene.add(v.root);
-  if (v.kind === 'bannerArch' || v.kind === 'boomBarrier' || v.kind === 'scaffold') {
+  if (OBSTACLES[v.kind].cls === 'high') {
     const g = pool.acquireGantry();
     g.position.set(0, 0, -0.2);
     g.scale.x = (kinds.length * 2.6) / 7.5;

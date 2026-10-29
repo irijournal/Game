@@ -91,61 +91,64 @@ export interface SignOpts {
 export function sign(text: string, o: SignOpts): THREE.CanvasTexture {
   const w = o.w ?? 512;
   const h = o.h ?? 256;
-  return canvasTexture(`sign:${text}|${JSON.stringify(o)}`, w, h, (ctx) => {
-    ctx.fillStyle = o.bg;
-    ctx.fillRect(0, 0, w, h);
-    if (o.stripe) {
-      ctx.save();
-      ctx.fillStyle = '#111';
-      for (let i = -h; i < w; i += 40) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i + 20, 0);
-        ctx.lineTo(i + 20 + h * 0.1, h * 0.1);
-        ctx.lineTo(i + h * 0.1, h * 0.1);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(i, h * 0.9);
-        ctx.lineTo(i + 20, h * 0.9);
-        ctx.lineTo(i + 20 + h * 0.1, h);
-        ctx.lineTo(i + h * 0.1, h);
-        ctx.fill();
-      }
-      ctx.restore();
+  return canvasTexture(`sign:${text}|${JSON.stringify(o)}`, w, h, (ctx) => drawSign(ctx, w, h, text, o));
+}
+
+/** Draw a sign into any canvas (also used to repaint reusable textures). */
+export function drawSign(ctx: CanvasRenderingContext2D, w: number, h: number, text: string, o: SignOpts): void {
+  ctx.fillStyle = o.bg;
+  ctx.fillRect(0, 0, w, h);
+  if (o.stripe) {
+    ctx.save();
+    ctx.fillStyle = '#111';
+    for (let i = -h; i < w; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + 20, 0);
+      ctx.lineTo(i + 20 + h * 0.1, h * 0.1);
+      ctx.lineTo(i + h * 0.1, h * 0.1);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(i, h * 0.9);
+      ctx.lineTo(i + 20, h * 0.9);
+      ctx.lineTo(i + 20 + h * 0.1, h);
+      ctx.lineTo(i + h * 0.1, h);
+      ctx.fill();
     }
-    if (o.border) {
-      ctx.strokeStyle = o.border;
-      ctx.lineWidth = Math.max(6, w / 50);
-      ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, w - ctx.lineWidth, h - ctx.lineWidth);
-    }
-    const font = o.font ?? FONT;
-    const pad = w * 0.07;
-    const subH = o.sub ? h * 0.16 : 0;
-    const area = h * (o.stripe ? 0.72 : 0.84) - subH;
-    let size = Math.floor(h * 0.42);
-    let lines: string[] = [];
-    for (; size > 10; size -= 2) {
-      ctx.font = `900 ${size}px ${font}`;
-      lines = wrapText(ctx, text, w - pad * 2);
-      const widest = Math.max(...lines.map((l) => ctx.measureText(l).width));
-      if (lines.length * size * 1.02 <= area && widest <= w - pad * 2) break;
-    }
-    ctx.fillStyle = o.fg;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const top = (h - subH - lines.length * size * 1.02) / 2 + size * 0.55;
-    lines.forEach((l, i) => ctx.fillText(l, w / 2, top + i * size * 1.02));
-    if (o.sub) {
-      let subSize = Math.floor(subH * 0.7);
+    ctx.restore();
+  }
+  if (o.border) {
+    ctx.strokeStyle = o.border;
+    ctx.lineWidth = Math.max(6, w / 50);
+    ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, w - ctx.lineWidth, h - ctx.lineWidth);
+  }
+  const font = o.font ?? FONT;
+  const pad = w * 0.07;
+  const subH = o.sub ? h * 0.16 : 0;
+  const area = h * (o.stripe ? 0.72 : 0.84) - subH;
+  let size = Math.floor(h * 0.42);
+  let lines: string[] = [];
+  for (; size > 10; size -= 2) {
+    ctx.font = `900 ${size}px ${font}`;
+    lines = wrapText(ctx, text, w - pad * 2);
+    const widest = Math.max(...lines.map((l) => ctx.measureText(l).width));
+    if (lines.length * size * 1.02 <= area && widest <= w - pad * 2) break;
+  }
+  ctx.fillStyle = o.fg;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const top = (h - subH - lines.length * size * 1.02) / 2 + size * 0.55;
+  lines.forEach((l, i) => ctx.fillText(l, w / 2, top + i * size * 1.02));
+  if (o.sub) {
+    let subSize = Math.floor(subH * 0.7);
+    ctx.font = `700 ${subSize}px ${FONT}`;
+    while (subSize > 8 && ctx.measureText(o.sub).width > w - pad * 2) {
+      subSize -= 1;
       ctx.font = `700 ${subSize}px ${FONT}`;
-      while (subSize > 8 && ctx.measureText(o.sub).width > w - pad * 2) {
-        subSize -= 1;
-        ctx.font = `700 ${subSize}px ${FONT}`;
-      }
-      ctx.fillStyle = o.subColor ?? o.fg;
-      ctx.fillText(o.sub, w / 2, h - subH * 0.75 - (o.stripe ? h * 0.1 : 0));
     }
-  });
+    ctx.fillStyle = o.subColor ?? o.fg;
+    ctx.fillText(o.sub, w / 2, h - subH * 0.75 - (o.stripe ? h * 0.1 : 0));
+  }
 }
 
 export function roadTexture(): THREE.CanvasTexture {
@@ -236,7 +239,7 @@ export function dustTexture(): THREE.CanvasTexture {
   );
 }
 
-export type FacadeStyle = 'shop' | 'apartment' | 'haveli' | 'glass';
+export type FacadeStyle = 'shop' | 'apartment' | 'haveli' | 'glass' | 'temple' | 'terminal' | 'hut' | 'factory' | 'neon' | 'barrier';
 
 /** Greyscale facade (multiplied by the building colour). */
 export function facadeTexture(style: FacadeStyle, floors: number): THREE.CanvasTexture {
@@ -244,13 +247,50 @@ export function facadeTexture(style: FacadeStyle, floors: number): THREE.CanvasT
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
     const fh = h / floors;
+    if (style === 'barrier') {
+      // Expressway noise barrier: vertical panels between posts.
+      for (let x = 0; x < w; x += 32) {
+        ctx.fillStyle = x % 64 ? '#e4e8ec' : '#cfd6dc';
+        ctx.fillRect(x, 0, 32, h);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(x, 0, 3, h);
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(0, h * 0.45, w, 4);
+      return;
+    }
+    if (style === 'hut') {
+      // Mud wall with a doorway and a small window.
+      for (let i = 0; i < 260; i++) {
+        const g = 200 + Math.random() * 55;
+        ctx.fillStyle = `rgb(${g},${g},${g})`;
+        ctx.fillRect(Math.random() * w, Math.random() * h, 6, 3);
+      }
+      ctx.fillStyle = '#6a5040';
+      ctx.fillRect(w * 0.15, h * 0.3, w * 0.22, h * 0.7);
+      ctx.fillRect(w * 0.6, h * 0.35, w * 0.18, h * 0.22);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(0, h - 8, w, 8);
+      return;
+    }
     for (let f = 0; f < floors; f++) {
       const y0 = f * fh;
-      if (style === 'glass') {
-        ctx.fillStyle = '#9fb4c8';
+      if (style === 'glass' || style === 'neon' || style === 'terminal') {
+        ctx.fillStyle = style === 'neon' ? '#4a5878' : style === 'terminal' ? '#8fc0e0' : '#9fb4c8';
         ctx.fillRect(6, y0 + 6, w - 12, fh - 12);
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        for (let x = 10; x < w; x += 32) ctx.fillRect(x, y0 + 8, 3, fh - 16);
+        for (let x = 10; x < w; x += style === 'terminal' ? 20 : 32) ctx.fillRect(x, y0 + 8, 3, fh - 16);
+        if (style === 'neon') {
+          ctx.fillStyle = f % 2 ? '#7af7ff' : '#ffb04a';
+          ctx.fillRect(0, y0 + fh - 7, w, 5);
+        }
+        continue;
+      }
+      if (style === 'factory') {
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        for (let x = 0; x < w; x += 12) ctx.fillRect(x, y0, 4, fh);
+        ctx.fillStyle = '#5f6f86';
+        for (let i = 0; i < 6; i++) ctx.fillRect(10 + i * 41, y0 + fh * 0.3, 30, fh * 0.22);
         continue;
       }
       const n = style === 'apartment' ? 4 : 3;
@@ -261,7 +301,8 @@ export function facadeTexture(style: FacadeStyle, floors: number): THREE.CanvasT
         const wwid = ww * 0.56;
         const whei = fh * 0.56;
         ctx.fillStyle = '#5f6f86';
-        if (style === 'haveli') {
+        if (style === 'haveli' || style === 'temple') {
+          ctx.fillStyle = style === 'temple' ? '#8a6a50' : '#5f6f86';
           ctx.beginPath();
           ctx.moveTo(x, wy + whei);
           ctx.lineTo(x, wy + whei * 0.4);
@@ -280,6 +321,12 @@ export function facadeTexture(style: FacadeStyle, floors: number): THREE.CanvasT
           ctx.fillRect(x - 4, wy + whei, wwid + 8, 5);
         }
       }
+      if (style === 'temple') {
+        // Carved stone bands.
+        ctx.fillStyle = 'rgba(120,70,30,0.35)';
+        ctx.fillRect(0, y0 + 2, w, 6);
+        for (let x = 4; x < w; x += 16) ctx.fillRect(x, y0 + 10, 8, 6);
+      }
       ctx.fillStyle = 'rgba(0,0,0,0.12)';
       ctx.fillRect(0, y0 + fh - 4, w, 4);
     }
@@ -290,7 +337,76 @@ export function facadeTexture(style: FacadeStyle, floors: number): THREE.CanvasT
       ctx.fillStyle = 'rgba(0,0,0,0.25)';
       for (let y = h - fh * 0.85; y < h; y += 6) ctx.fillRect(w * 0.1, y, w * 0.8, 2);
     }
+    if (style === 'factory') {
+      ctx.fillStyle = '#6a7078';
+      ctx.fillRect(w * 0.3, h - fh * 0.8, w * 0.4, fh * 0.8);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      for (let y = h - fh * 0.8; y < h; y += 8) ctx.fillRect(w * 0.3, y, w * 0.4, 2);
+    }
   });
+}
+
+export function grassTexture(): THREE.CanvasTexture {
+  return canvasTexture(
+    'grass',
+    128,
+    128,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 700; i++) {
+        const g = 170 + Math.random() * 85;
+        ctx.fillStyle = `rgb(${g},${g},${g})`;
+        ctx.fillRect(Math.random() * w, Math.random() * h, 2, 5);
+      }
+    },
+    { repeat: true },
+  );
+}
+
+export function stoneTexture(): THREE.CanvasTexture {
+  return canvasTexture(
+    'stone',
+    128,
+    128,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(90,50,20,0.25)';
+      ctx.lineWidth = 3;
+      for (let r = 0; r < 4; r++) {
+        const y = (r * h) / 4;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+        for (let c = 0; c < 3; c++) {
+          const x = ((c + (r % 2) * 0.5) * w) / 3;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + h / 4);
+          ctx.stroke();
+        }
+      }
+    },
+    { repeat: true },
+  );
+}
+
+/** Crop rows for field plots. */
+export function fieldTexture(): THREE.CanvasTexture {
+  return canvasTexture(
+    'field',
+    64,
+    64,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      for (let x = 0; x < w; x += 8) ctx.fillRect(x, 0, 3, h);
+    },
+    { repeat: true },
+  );
 }
 
 export function blobShadow(): THREE.CanvasTexture {

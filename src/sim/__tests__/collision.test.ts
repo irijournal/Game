@@ -10,7 +10,7 @@ import { EMPTY_CELL } from '../generator';
 
 function ob(kind: ObstacleKind, lane: Lane, s: number): Obstacle {
   const d = OBSTACLES[kind];
-  return { id: 1, kind, cls: d.cls, lane, s, depth: d.depth, bottom: d.bottom, top: d.top, halfW: d.halfW, rowId: 1, gantry: false, flags: 0, hit: false, passed: false };
+  return { id: 1, kind, cls: d.cls, lane, s, depth: d.depth, bottom: d.bottom, top: d.top, halfW: d.halfW, rowId: 1, gantry: false, flags: 0, hit: false, passed: false, debris: false };
 }
 
 function row(s: number, cells: (ObstacleKind | null)[]): Row {

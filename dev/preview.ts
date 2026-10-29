@@ -22,7 +22,7 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshLam
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
-const ids: CharacterId[] = ['akhilesh', 'yogi', 'ummeedwar'];
+const ids: CharacterId[] = ['akhilesh', 'yogi', 'karyakarta'];
 const rigs = ids.map((id, i) => {
   const r = buildCharacter(id, { outfit: outfit ? `${id}.${outfit}` : `${id}.classic` });
   r.root.position.x = (i - 1) * 1.4;

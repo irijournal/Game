@@ -13,7 +13,7 @@ describe('ScoreKeeper', () => {
     s.addChaseComplete(4);
     s.addBonus('mission');
     s.addBonus('discovery');
-    s.addBonus('heritageToken');
+    s.addBonus('devToken');
     s.addBonus('chaseToken');
     const b = s.breakdown();
     expect(b.distance).toBe(100);
@@ -22,9 +22,23 @@ describe('ScoreKeeper', () => {
     expect(b.chase).toBe(POINTS.chaseBase + 4 * POINTS.chasePerEscape + POINTS.chaseToken);
     expect(b.missions).toBe(POINTS.mission);
     expect(b.discovery).toBe(POINTS.discovery);
-    expect(b.tokens).toBe(POINTS.heritageToken);
-    expect(b.total).toBe(b.distance + b.coins + b.dodges + b.chase + b.missions + b.discovery + b.tokens);
+    expect(b.tokens).toBe(POINTS.devToken);
+    expect(b.total).toBe(b.distance + b.coins + b.dodges + b.chase + b.missions + b.discovery + b.tokens + b.rival + b.level);
     expect(s.total).toBe(b.total);
+  });
+
+  it('routes rival, level and token bonuses to their buckets', () => {
+    const s = new ScoreKeeper();
+    s.tokenMultiplier = 1.2;
+    expect(s.addBonus('devToken')).toBe(30);
+    s.addBonus('quiz');
+    s.addBonus('rivalWin');
+    s.addLevelComplete(3);
+    const b = s.breakdown();
+    expect(b.tokens).toBe(30);
+    expect(b.rival).toBe(POINTS.quiz + POINTS.rivalWin);
+    expect(b.level).toBe(POINTS.levelComplete + 3 * POINTS.perStar);
+    expect(b.total).toBe(30 + b.rival + b.level);
   });
 
   it('ignores negative or invalid distance', () => {

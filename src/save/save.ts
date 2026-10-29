@@ -1,12 +1,15 @@
+import { ACHIEVEMENTS, achievementUnlocked } from '../content/achievements';
+import { LEVELS, type LevelId } from '../content/levels';
 import { CHARACTERS, CHARACTER_ORDER, ROUTES, RUN_STYLES, TRAILS } from '../sim/characters';
 import { dayKey, missionById, missionsForDay, type ActiveMission } from '../sim/missions';
-import type { RunSummary } from '../sim/simulation';
+import type { Perks, RunSummary } from '../sim/simulation';
 import { THEME_ORDER, type CharacterId, type ModeId, type ThemeId } from '../sim/types';
 
 export const SAVE_KEY = 'uprun.save';
 export const LEGACY_KEY = 'uprun.save.v1';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 const MAX_NUM = 1e9;
+const MODES: readonly ModeId[] = ['campaign', 'rivalry', 'race', 'free'];
 
 export type Quality = 'auto' | 'high' | 'low';
 
@@ -17,6 +20,8 @@ export interface Settings {
   shortCinematics: boolean;
   quality: Quality;
   debugColliders: boolean;
+  /** On-screen ◀ ▲ ▼ ▶ buttons in addition to swipes. */
+  touchButtons: boolean;
 }
 
 export interface Equipped {
@@ -25,27 +30,49 @@ export interface Equipped {
   runStyle: string;
 }
 
+export interface LevelProgress {
+  completed: boolean;
+  stars: number;
+  best: number;
+  tokens: number;
+}
+
+export interface SaveStats {
+  runs: number;
+  totalDistance: number;
+  totalCoins: number;
+  chasesSurvived: number;
+  jumps: number;
+  devTokens: number;
+  rivalWins: number;
+  quizAnswered: number;
+  quizCorrect: number;
+  debatesWon: number;
+  racesWon: number;
+  roadsCleared: number;
+  promisesDelivered: number;
+  obstaclesAvoided: number;
+  missionsCompleted: number;
+  bestStage: number;
+}
+
 export interface SaveData {
   version: typeof SAVE_VERSION;
   coins: number;
   best: Record<ModeId, number> & { overall: number };
   bestDistance: number;
-  showdown: { day: string; best: Record<CharacterId, number> };
-  stats: {
-    runs: number;
-    totalDistance: number;
-    totalCoins: number;
-    chasesSurvived: number;
-    jumps: number;
-    heritageTokens: number;
-  };
+  levels: Record<LevelId, LevelProgress>;
+  badges: string[];
+  achievements: string[];
+  stats: SaveStats;
   missions: { day: string; ids: string[]; progress: Record<string, number>; completed: string[] };
   unlocked: string[];
   equipped: Record<CharacterId, Equipped>;
+  /** Hero used for campaign levels, races and free runs. */
   selectedCharacter: CharacterId;
   startRoute: ThemeId;
   discovered: ThemeId[];
-  flags: { introSeen: boolean; tutorialDone: boolean };
+  flags: { introSeen: boolean; tutorialDone: boolean; coinGiftClaimed: boolean };
   settings: Settings;
 }
 
@@ -56,6 +83,26 @@ export const DEFAULT_SETTINGS: Settings = {
   shortCinematics: false,
   quality: 'auto',
   debugColliders: false,
+  touchButtons: typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)').matches : false,
+};
+
+const EMPTY_STATS: SaveStats = {
+  runs: 0,
+  totalDistance: 0,
+  totalCoins: 0,
+  chasesSurvived: 0,
+  jumps: 0,
+  devTokens: 0,
+  rivalWins: 0,
+  quizAnswered: 0,
+  quizCorrect: 0,
+  debatesWon: 0,
+  racesWon: 0,
+  roadsCleared: 0,
+  promisesDelivered: 0,
+  obstaclesAvoided: 0,
+  missionsCompleted: 0,
+  bestStage: 1,
 };
 
 export function allCosmeticIds(): Set<string> {
@@ -64,8 +111,14 @@ export function allCosmeticIds(): Set<string> {
     ids.add('char.' + id);
     for (const o of CHARACTERS[id].outfits) ids.add(o.id);
   }
-  for (const c of [...TRAILS, ...RUN_STYLES, ...ROUTES]) ids.add(c.id);
+  for (const c of [...TRAILS, ...RUN_STYLES]) ids.add(c.id);
   return ids;
+}
+
+function emptyLevels(): Record<LevelId, LevelProgress> {
+  const out = {} as Record<LevelId, LevelProgress>;
+  for (const l of LEVELS) out[l.id] = { completed: false, stars: 0, best: 0, tokens: 0 };
+  return out;
 }
 
 export function defaultSave(day = dayKey()): SaveData {
@@ -73,28 +126,23 @@ export function defaultSave(day = dayKey()): SaveData {
   for (const id of CHARACTER_ORDER) {
     equipped[id] = { outfit: CHARACTERS[id].outfits[0].id, trail: 'trail.none', runStyle: 'run.classic' };
   }
-  const freebies = [
-    'char.akhilesh',
-    'char.yogi',
-    ...CHARACTER_ORDER.map((id) => CHARACTERS[id].outfits[0].id),
-    'trail.none',
-    'run.classic',
-    'route.lucknow',
-  ];
+  const freebies = ['char.yogi', 'char.akhilesh', ...CHARACTER_ORDER.map((id) => CHARACTERS[id].outfits[0].id), 'trail.none', 'run.classic'];
   return {
     version: SAVE_VERSION,
     coins: 0,
-    best: { overall: 0, A: 0, B: 0, C: 0 },
+    best: { overall: 0, campaign: 0, rivalry: 0, race: 0, free: 0 },
     bestDistance: 0,
-    showdown: { day, best: { akhilesh: 0, yogi: 0, ummeedwar: 0 } },
-    stats: { runs: 0, totalDistance: 0, totalCoins: 0, chasesSurvived: 0, jumps: 0, heritageTokens: 0 },
+    levels: emptyLevels(),
+    badges: [],
+    achievements: [],
+    stats: { ...EMPTY_STATS },
     missions: { day, ids: missionsForDay(day).map((m) => m.id), progress: {}, completed: [] },
     unlocked: freebies,
     equipped,
-    selectedCharacter: 'akhilesh',
-    startRoute: 'lucknow',
-    discovered: ['lucknow'],
-    flags: { introSeen: false, tutorialDone: false },
+    selectedCharacter: 'yogi',
+    startRoute: 'expressway',
+    discovered: ['expressway'],
+    flags: { introSeen: false, tutorialDone: false, coinGiftClaimed: false },
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -123,21 +171,48 @@ function strArray(v: unknown, allowed?: Set<string>): string[] {
   return [...new Set(out)];
 }
 
+const OLD_THEMES: Record<string, ThemeId> = { lucknow: 'lawandorder', heritage: 'ayodhya', modern: 'startup', festival: 'viksit' };
+const OLD_IDS: Record<string, string> = {
+  'char.ummeedwar': 'char.karyakarta',
+  'trail.redgreen': 'trail.saffrongreen',
+};
+
 /** Bring older save formats up to the current schema shape. */
 export function migrate(raw: unknown): unknown {
   if (!isObj(raw)) return raw;
   if (raw.version === 1 || raw.version === undefined) {
     // v1 stored a single best score and a coin wallet.
     const best = num(raw.best, 0);
-    return { version: 2, coins: raw.coins, best: { overall: best, A: best, B: 0, C: 0 } };
+    return { version: 3, coins: raw.coins, best: { overall: best, rivalry: best } };
+  }
+  if (raw.version === 2) {
+    // v2 (Political Rivalry Mode): modes A/B/C, four themes, Ummeedwar-ji.
+    const b = isObj(raw.best) ? raw.best : {};
+    const out: Record<string, unknown> = { ...raw, version: 3 };
+    out.best = { overall: num(b.overall, 0), rivalry: Math.max(num(b.A, 0), num(b.B, 0)), free: num(b.C, 0), campaign: 0, race: 0 };
+    out.unlocked = strArray(raw.unlocked).map((id) => OLD_IDS[id] ?? id);
+    out.discovered = strArray(raw.discovered).map((t) => OLD_THEMES[t] ?? t);
+    out.startRoute = 'expressway';
+    if (raw.selectedCharacter === 'ummeedwar') out.selectedCharacter = 'karyakarta';
+    else if (raw.selectedCharacter === 'akhilesh') out.selectedCharacter = 'yogi';
+    if (isObj(raw.equipped)) {
+      const eq = { ...raw.equipped } as Record<string, unknown>;
+      if (eq.ummeedwar) eq.karyakarta = { ...(eq.ummeedwar as object), outfit: 'karyakarta.classic' };
+      for (const k of Object.keys(eq)) {
+        const e = eq[k];
+        if (isObj(e) && typeof e.trail === 'string') e.trail = OLD_IDS[e.trail] ?? e.trail;
+      }
+      out.equipped = eq;
+    }
+    return out;
   }
   return raw;
 }
 
 /**
- * Turn anything (missing, corrupted, hand-edited, from a newer version) into
- * a valid SaveData. Invalid fields fall back to defaults individually, so one
- * bad value never wipes the rest of the player's progress.
+ * Turn anything (missing, corrupted, hand-edited, from an older version)
+ * into a valid SaveData. Invalid fields fall back to defaults individually,
+ * so one bad value never wipes the rest of the player's progress.
  */
 export function validateSave(input: unknown, day = dayKey()): SaveData {
   const def = defaultSave(day);
@@ -146,28 +221,24 @@ export function validateSave(input: unknown, day = dayKey()): SaveData {
   const out = defaultSave(day);
   out.coins = num(raw.coins, def.coins);
   if (isObj(raw.best)) {
-    out.best = {
-      overall: num(raw.best.overall, 0),
-      A: num(raw.best.A, 0),
-      B: num(raw.best.B, 0),
-      C: num(raw.best.C, 0),
-    };
-    out.best.overall = Math.max(out.best.overall, out.best.A, out.best.B, out.best.C);
+    for (const m of MODES) out.best[m] = num(raw.best[m], 0);
+    out.best.overall = Math.max(num(raw.best.overall, 0), ...MODES.map((m) => out.best[m]));
   }
   out.bestDistance = num(raw.bestDistance, 0);
-  if (isObj(raw.showdown) && raw.showdown.day === day && isObj(raw.showdown.best)) {
-    for (const id of CHARACTER_ORDER) out.showdown.best[id] = num(raw.showdown.best[id], 0);
+  if (isObj(raw.levels)) {
+    for (const l of LEVELS) {
+      const p = raw.levels[l.id];
+      if (!isObj(p)) continue;
+      out.levels[l.id] = { completed: bool(p.completed, false), stars: Math.min(3, num(p.stars, 0)), best: num(p.best, 0), tokens: num(p.tokens, 0) };
+    }
   }
+  const badgeIds = new Set(LEVELS.map((l) => l.badge.id));
+  out.badges = strArray(raw.badges, badgeIds);
+  out.achievements = strArray(raw.achievements, new Set(ACHIEVEMENTS.map((a) => a.id)));
   if (isObj(raw.stats)) {
     const s = raw.stats;
-    out.stats = {
-      runs: num(s.runs, 0),
-      totalDistance: num(s.totalDistance, 0),
-      totalCoins: num(s.totalCoins, 0),
-      chasesSurvived: num(s.chasesSurvived, 0),
-      jumps: num(s.jumps, 0),
-      heritageTokens: num(s.heritageTokens, 0),
-    };
+    for (const k of Object.keys(EMPTY_STATS) as (keyof SaveStats)[]) out.stats[k] = num(s[k], EMPTY_STATS[k]);
+    out.stats.bestStage = Math.max(1, out.stats.bestStage);
   }
   if (isObj(raw.missions) && raw.missions.day === day) {
     const ids = strArray(raw.missions.ids).filter((id) => missionById(id));
@@ -189,13 +260,17 @@ export function validateSave(input: unknown, day = dayKey()): SaveData {
       out.equipped[id] = { outfit, trail, runStyle };
     }
   }
-  const sel = str<CharacterId>(raw.selectedCharacter, CHARACTER_ORDER, 'akhilesh');
-  out.selectedCharacter = out.unlocked.includes('char.' + sel) ? sel : 'akhilesh';
-  const route = str<ThemeId>(raw.startRoute, THEME_ORDER, 'lucknow');
-  out.startRoute = out.unlocked.includes('route.' + route) ? route : 'lucknow';
-  out.discovered = [...new Set(['lucknow', ...strArray(raw.discovered, new Set(THEME_ORDER))])] as ThemeId[];
+  const sel = str<CharacterId>(raw.selectedCharacter, CHARACTER_ORDER, 'yogi');
+  out.selectedCharacter = out.unlocked.includes('char.' + sel) ? sel : 'yogi';
+  const route = str<ThemeId>(raw.startRoute, THEME_ORDER, 'expressway');
+  out.startRoute = routeUnlocked(out, route) ? route : 'expressway';
+  out.discovered = [...new Set(['expressway', ...strArray(raw.discovered, new Set(THEME_ORDER))])] as ThemeId[];
   if (isObj(raw.flags)) {
-    out.flags = { introSeen: bool(raw.flags.introSeen, false), tutorialDone: bool(raw.flags.tutorialDone, false) };
+    out.flags = {
+      introSeen: bool(raw.flags.introSeen, false),
+      tutorialDone: bool(raw.flags.tutorialDone, false),
+      coinGiftClaimed: bool(raw.flags.coinGiftClaimed, false),
+    };
   }
   if (isObj(raw.settings)) {
     const s = raw.settings;
@@ -206,9 +281,31 @@ export function validateSave(input: unknown, day = dayKey()): SaveData {
       shortCinematics: bool(s.shortCinematics, false),
       quality: str(s.quality, ['auto', 'high', 'low'] as const, 'auto'),
       debugColliders: bool(s.debugColliders, false),
+      touchButtons: bool(s.touchButtons, DEFAULT_SETTINGS.touchButtons),
     };
   }
   return out;
+}
+
+// --------------------------------------------------------------- queries
+
+export function levelUnlocked(d: SaveData, id: LevelId): boolean {
+  const i = LEVELS.findIndex((l) => l.id === id);
+  return i <= 0 || d.levels[LEVELS[i - 1].id].completed;
+}
+
+/** Free Run start routes unlock with their campaign level. */
+export function routeUnlocked(d: SaveData, theme: ThemeId): boolean {
+  return theme === 'expressway' || d.levels[theme]?.completed === true;
+}
+
+export function perksFor(d: SaveData): Perks {
+  const has = (perk: string) => LEVELS.some((l) => l.badge.perk === perk && d.badges.includes(l.badge.id));
+  return { powerupBoost: has('powerupBoost'), guardBoost: has('guardBoost'), tokenBoost: has('tokenBoost') };
+}
+
+export function totalStars(d: SaveData): number {
+  return LEVELS.reduce((n, l) => n + d.levels[l.id].stars, 0);
 }
 
 // ------------------------------------------------------------ persistence
@@ -256,7 +353,7 @@ export class SaveStore {
       const text = this.storage.getItem(SAVE_KEY) ?? this.storage.getItem(LEGACY_KEY);
       if (!text) return defaultSave();
       return validateSave(JSON.parse(text));
-    } catch (e) {
+    } catch {
       this.lastError = 'Saved progress was unreadable and has been reset.';
       return defaultSave();
     }
@@ -296,12 +393,11 @@ export class SaveStore {
     this.listeners.forEach((l) => l());
   }
 
-  /** Roll missions/showdown over to today if the day changed. */
+  /** Roll missions over to today if the day changed. */
   refreshDay(day = dayKey()): void {
-    if (this.data.missions.day === day && this.data.showdown.day === day) return;
+    if (this.data.missions.day === day) return;
     this.update((d) => {
-      if (d.missions.day !== day) d.missions = { day, ids: missionsForDay(day).map((m) => m.id), progress: {}, completed: [] };
-      if (d.showdown.day !== day) d.showdown = { day, best: { akhilesh: 0, yogi: 0, ummeedwar: 0 } };
+      d.missions = { day, ids: missionsForDay(day).map((m) => m.id), progress: {}, completed: [] };
     });
   }
 }
@@ -319,31 +415,53 @@ export interface RunResultInfo {
   coinsEarned: number;
   missionRewards: number;
   unlockedNow: string[];
+  /** Campaign only. */
+  badgeEarned: string | null;
+  nextLevelUnlocked: LevelId | null;
+  previousStars: number;
+  achievementsNow: string[];
+  giftCoins: number;
+}
+
+function updateAchievements(d: SaveData): string[] {
+  const now: string[] = [];
+  for (const a of ACHIEVEMENTS) {
+    if (!d.achievements.includes(a.id) && achievementUnlocked(a, d)) {
+      d.achievements.push(a.id);
+      now.push(a.id);
+    }
+  }
+  return now;
 }
 
 /**
- * Fold a finished run into the save. Pure with respect to `d` (mutates it);
- * the caller persists. `missionProgress` holds the run's final progress for
- * each active mission (already combined with the stored base).
+ * Fold a finished run into the save (mutates `d`; the caller persists).
+ * `missionProgress` holds the run's final progress for each active mission
+ * (already combined with the stored base).
  */
-export function applyRun(
-  d: SaveData,
-  run: RunSummary,
-  missionProgress: Record<string, number>,
-): RunResultInfo {
+export function applyRun(d: SaveData, run: RunSummary, missionProgress: Record<string, number>): RunResultInfo {
   const previousBest = d.best[run.mode];
   const newBest = run.score > previousBest;
   d.best[run.mode] = Math.max(d.best[run.mode], run.score);
   d.best.overall = Math.max(d.best.overall, run.score);
   d.bestDistance = Math.max(d.bestDistance, run.distance);
-  if (run.mode === 'C') d.showdown.best[run.character] = Math.max(d.showdown.best[run.character], run.score);
 
-  d.stats.runs += 1;
-  d.stats.totalDistance += run.distance;
-  d.stats.totalCoins += run.coins;
-  d.stats.chasesSurvived += run.stats.chasesSurvived;
-  d.stats.jumps += run.stats.jumpsOver;
-  d.stats.heritageTokens += run.stats.heritageTokens;
+  const s = d.stats;
+  const r = run.stats;
+  s.runs += 1;
+  s.totalDistance += run.distance;
+  s.totalCoins += run.coins;
+  s.chasesSurvived += r.chasesSurvived;
+  s.jumps += r.jumpsOver;
+  s.devTokens += r.devTokens;
+  s.rivalWins += r.rivalWins;
+  s.quizAnswered += r.quizAnswered;
+  s.quizCorrect += r.quizCorrect;
+  s.roadsCleared += r.roadsCleared;
+  s.promisesDelivered += r.promisesDelivered;
+  s.obstaclesAvoided += r.dodges;
+  if (run.mode === 'rivalry') s.bestStage = Math.max(s.bestStage, r.stage);
+  if (run.race?.won) s.racesWon += 1;
 
   let missionRewards = 0;
   for (const id of d.missions.ids) {
@@ -352,9 +470,41 @@ export function applyRun(
   for (const id of run.missionsCompleted) {
     if (d.missions.completed.includes(id)) continue;
     d.missions.completed.push(id);
+    s.missionsCompleted += 1;
     missionRewards += missionById(id)?.reward ?? 0;
   }
-  d.coins += run.coins + missionRewards;
+
+  let badgeEarned: string | null = null;
+  let nextLevelUnlocked: LevelId | null = null;
+  let previousStars = 0;
+  let giftCoins = 0;
+  if (run.level) {
+    const id = run.level.id as LevelId;
+    const lp = d.levels[id];
+    const def = LEVELS.find((l) => l.id === id);
+    if (lp && def) {
+      previousStars = lp.stars;
+      lp.best = Math.max(lp.best, run.score);
+      lp.tokens = Math.max(lp.tokens, run.level.tokens);
+      lp.stars = Math.max(lp.stars, run.level.stars);
+      if (run.level.completed) {
+        const first = !lp.completed;
+        lp.completed = true;
+        if (!d.badges.includes(def.badge.id)) {
+          d.badges.push(def.badge.id);
+          badgeEarned = def.badge.id;
+          if (def.badge.perk === 'coinGift' && !d.flags.coinGiftClaimed) {
+            d.flags.coinGiftClaimed = true;
+            giftCoins = 300;
+          }
+        }
+        const next = LEVELS[def.num];
+        if (first && next) nextLevelUnlocked = next.id;
+      }
+    }
+  }
+
+  d.coins += run.coins + missionRewards + giftCoins;
   for (const t of run.discoveries) if (!d.discovered.includes(t)) d.discovered.push(t);
 
   const unlockedNow: string[] = [];
@@ -367,7 +517,14 @@ export function applyRun(
     }
   }
   d.flags.tutorialDone = true;
-  return { newBest, previousBest, coinsEarned: run.coins, missionRewards, unlockedNow };
+  const achievementsNow = updateAchievements(d);
+  return { newBest, previousBest, coinsEarned: run.coins, missionRewards, unlockedNow, badgeEarned, nextLevelUnlocked, previousStars, achievementsNow, giftCoins };
+}
+
+/** Debate Arena result (UI-only mode). */
+export function applyDebate(d: SaveData, won: boolean): string[] {
+  if (won) d.stats.debatesWon += 1;
+  return updateAchievements(d);
 }
 
 export function priceOf(id: string): number {
@@ -379,7 +536,7 @@ export function priceOf(id: string): number {
     const o = CHARACTERS[c].outfits.find((x) => x.id === id);
     if (o) return o.price;
   }
-  return [...TRAILS, ...RUN_STYLES, ...ROUTES].find((x) => x.id === id)?.price ?? Infinity;
+  return [...TRAILS, ...RUN_STYLES].find((x) => x.id === id)?.price ?? Infinity;
 }
 
 /** Spend coins on a cosmetic. Returns false if unaffordable or unknown. */
@@ -391,3 +548,5 @@ export function purchase(d: SaveData, id: string): boolean {
   d.unlocked.push(id);
   return true;
 }
+
+export { ROUTES };

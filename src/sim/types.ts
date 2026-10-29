@@ -2,30 +2,66 @@ export type Lane = 0 | 1 | 2;
 export type ObstacleClass = 'low' | 'high' | 'wall' | 'gap';
 
 export type ObstacleKind =
+  // low (jump or change lane)
   | 'barricade'
   | 'cones'
   | 'fileStack'
   | 'aframeSign'
+  | 'flowerCart'
+  | 'luggageCart'
+  | 'brokenPipe'
+  | 'hayBale'
+  | 'queueBarrier'
+  | 'delaySign'
+  | 'pallet'
+  | 'droneCrate'
+  // gaps (jump or change lane)
   | 'pothole'
   | 'roadGap'
   | 'wideGap'
+  | 'canalGap'
+  | 'openDrain'
+  // hanging (slide or change lane)
   | 'bannerArch'
   | 'boomBarrier'
   | 'scaffold'
+  | 'toranaArch'
+  | 'flightBoard'
+  | 'conveyor'
+  | 'holoGate'
+  // walls (change lane)
   | 'gundarajBoard'
   | 'constructionWall'
   | 'fileMountain'
   | 'mediaVan'
   | 'bus'
-  | 'truck';
+  | 'truck'
+  | 'chariotFloat'
+  | 'baggageTug'
+  | 'crateStack'
+  | 'tractor'
+  | 'unfinishedSign'
+  | 'forklift'
+  | 'maglevPod';
 
-export type PickupKind = 'coin' | 'magnet' | 'vikas' | 'chaseToken' | 'heritageToken';
+/** Development tokens look different in every environment. */
+export type TokenVariant = 'road' | 'diya' | 'plane' | 'wheat' | 'welfare' | 'shield' | 'gear' | 'star';
 
-export type ThemeId = 'lucknow' | 'heritage' | 'modern' | 'festival';
-export const THEME_ORDER: readonly ThemeId[] = ['lucknow', 'heritage', 'modern', 'festival'];
+export type PickupKind = 'coin' | 'magnet' | 'vikas' | 'chaseToken' | 'devToken' | 'reportCard' | 'promise' | 'bulldozer';
 
-export type CharacterId = 'akhilesh' | 'yogi' | 'ummeedwar';
-export type ModeId = 'A' | 'B' | 'C';
+/** Playable environments (each campaign level has its own). */
+export type ThemeId = 'expressway' | 'ayodhya' | 'airport' | 'kisan' | 'jankalyan' | 'lawandorder' | 'startup' | 'viksit';
+export const THEME_ORDER: readonly ThemeId[] = ['expressway', 'ayodhya', 'airport', 'kisan', 'jankalyan', 'lawandorder', 'startup', 'viksit'];
+
+export type CharacterId = 'yogi' | 'akhilesh' | 'karyakarta';
+
+/**
+ * campaign: the eight development levels (hero)
+ * rivalry:  play as the rival; stages end in a Governance Showdown chase
+ * race:     Development Race against the rival on a parallel route
+ * free:     endless free run with any unlocked character
+ */
+export type ModeId = 'campaign' | 'rivalry' | 'race' | 'free';
 
 export interface Obstacle {
   id: number;
@@ -46,6 +82,8 @@ export interface Obstacle {
   /** Set after a recoverable hit; the obstacle is knocked away and inert. */
   hit: boolean;
   passed: boolean;
+  /** Road debris placed for the bulldozer power-up to clear. */
+  debris: boolean;
 }
 
 export interface RowCell {
@@ -67,6 +105,7 @@ export interface Row {
 export interface Pickup {
   id: number;
   kind: PickupKind;
+  variant: TokenVariant | null;
   s: number;
   x: number;
   y: number;
@@ -95,4 +134,26 @@ export interface PlannedEvent {
   s1: number;
   started: boolean;
   ended: boolean;
+  warned?: boolean;
+}
+
+/** Scripted rival/level encounters placed along a course. */
+export type EncounterKind = 'redCap' | 'promises' | 'quiz' | 'bulldozer';
+
+export interface Encounter {
+  kind: EncounterKind;
+  /** Start of the encounter (or the gate position for a quiz). */
+  s0: number;
+  s1: number;
+  quizId?: string;
+  announced: boolean;
+  started: boolean;
+  ended: boolean;
+  failed: boolean;
+  /** Promises vs Performance bookkeeping. */
+  total: number;
+  got: number;
+  /** Quiz: lane chosen and whether it was correct. */
+  chosen?: number;
+  correct?: boolean;
 }

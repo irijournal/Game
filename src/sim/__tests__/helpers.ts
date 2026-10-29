@@ -27,6 +27,7 @@ export function rowsToObstacles(rows: Row[]): Obstacle[] {
         flags: 0,
         hit: false,
         passed: false,
+        debris: false,
       });
     });
   }
@@ -133,14 +134,14 @@ export function physicsSurvivable(rows: Row[], startLane: Lane, speed: (s: numbe
 
 export function baseConfig(over: Partial<SimConfig> = {}): SimConfig {
   return {
-    mode: 'A',
+    mode: 'free',
     character: 'akhilesh',
     rival: 'yogi',
     seed: 1234,
-    startTheme: 'lucknow',
+    startTheme: 'lawandorder',
     shortCinematics: false,
     missions: [],
-    discovered: ['lucknow'],
+    discovered: ['lawandorder'],
     tutorial: false,
     ...over,
   };

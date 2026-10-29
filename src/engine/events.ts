@@ -1,6 +1,6 @@
 import type { RunResultInfo } from '../save/save';
 import type { RunSummary } from '../sim/simulation';
-import type { CharacterId, ModeId, SimState, ThemeId } from '../sim/types';
+import type { CharacterId, EncounterKind, ModeId, SimState, ThemeId, TokenVariant } from '../sim/types';
 
 export type CaptionTone = 'challenge' | 'showdown' | 'chase' | 'success' | 'go' | 'warn' | 'info';
 export type ToastTone = 'mission' | 'discovery' | 'bonus' | 'info' | 'warn' | 'powerup';
@@ -12,6 +12,7 @@ export type UiEvent =
   | { type: 'toast'; text: string; sub?: string; tone: ToastTone }
   | { type: 'hint'; text: string }
   | { type: 'infoCard'; title: string; body: string }
+  | { type: 'factCard'; factId: string; heading: string }
   | { type: 'gameOver'; summary: RunSummary; info: RunResultInfo }
   | { type: 'paused'; paused: boolean; reason?: string }
   | { type: 'introDone' }
@@ -27,7 +28,17 @@ export interface HudSnapshot {
   guardT: number;
   state: SimState | 'NONE';
   chase: { remaining: number; total: number; escapes: number; kind: 'bulldozer' | 'cycle'; stage: number } | null;
-  power: { kind: 'magnet' | 'vikas' | 'speedRun'; t: number; total: number } | null;
+  power: { kind: 'magnet' | 'vikas' | 'speedRun' | 'bulldozer'; t: number; total: number } | null;
+  /** Campaign level progress. */
+  level: { id: ThemeId; num: number; name: string; progress: number; tokens: number; goal: number; token: TokenVariant } | null;
+  /** Development Race progress (0..1 for both runners). */
+  race: { progress: number; rival: number } | null;
+  /** Accountability Gate being approached or just passed. */
+  quiz: { id: string; q: string; options: [string, string, string]; metres: number; chosen: number | null; correct: boolean | null } | null;
+  /** Red Cap Challenge / Promises vs Performance in progress. */
+  encounter: { kind: EncounterKind; got: number; total: number; failed: boolean; metres: number } | null;
+  devTokens: number;
+  stage: number;
   mode: ModeId;
   character: CharacterId;
   rival: CharacterId;
@@ -47,10 +58,16 @@ export const EMPTY_HUD: HudSnapshot = {
   state: 'NONE',
   chase: null,
   power: null,
-  mode: 'A',
-  character: 'akhilesh',
-  rival: 'yogi',
-  theme: 'lucknow',
+  level: null,
+  race: null,
+  quiz: null,
+  encounter: null,
+  devTokens: 0,
+  stage: 1,
+  mode: 'campaign',
+  character: 'yogi',
+  rival: 'akhilesh',
+  theme: 'expressway',
   skippable: false,
   multiplier: 1,
 };
@@ -78,8 +95,14 @@ export class HudStore {
       a.skippable === next.skippable &&
       a.multiplier === next.multiplier &&
       a.theme === next.theme &&
+      a.devTokens === next.devTokens &&
+      a.stage === next.stage &&
       JSON.stringify(a.chase) === JSON.stringify(next.chase) &&
-      JSON.stringify(a.power) === JSON.stringify(next.power)
+      JSON.stringify(a.power) === JSON.stringify(next.power) &&
+      JSON.stringify(a.level) === JSON.stringify(next.level) &&
+      JSON.stringify(a.race) === JSON.stringify(next.race) &&
+      JSON.stringify(a.quiz) === JSON.stringify(next.quiz) &&
+      JSON.stringify(a.encounter) === JSON.stringify(next.encounter)
     )
       return;
     this.snap = next;

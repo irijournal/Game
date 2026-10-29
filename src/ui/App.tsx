@@ -1,12 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Engine, type StartOptions } from '../engine/Engine';
 import type { UiEvent } from '../engine/events';
+import type { LevelId } from '../content/levels';
 import type { CharacterId } from '../sim/types';
+import { BoardScreen } from './Board';
+import { DebateScreen } from './Debate';
 import { GameOverlay } from './GameOverlay';
 import { saveStore, updateSave, useSave } from './store';
-import { CharacterScreen, MenuScreen, MissionsScreen, ModeScreen, ScoresScreen, SettingsScreen, ShopScreen, TitleScreen } from './Screens';
+import { CampaignScreen, CharacterScreen, heroFor, LevelIntroScreen, MenuScreen, MissionsScreen, ModeScreen, nextLevel, ScoresScreen, SettingsScreen, ShopScreen, TitleScreen } from './Screens';
 
-export type Screen = 'boot' | 'intro' | 'title' | 'menu' | 'modes' | 'characters' | 'missions' | 'shop' | 'scores' | 'settings' | 'game' | 'error';
+export type Screen =
+  | 'boot'
+  | 'intro'
+  | 'title'
+  | 'menu'
+  | 'campaign'
+  | 'level'
+  | 'modes'
+  | 'debate'
+  | 'board'
+  | 'characters'
+  | 'missions'
+  | 'shop'
+  | 'scores'
+  | 'settings'
+  | 'game'
+  | 'error';
+
+/** Screens shown over the idling character on the street. */
+const SHOWCASE: readonly Screen[] = ['menu', 'campaign', 'level', 'characters', 'modes', 'board', 'missions', 'shop', 'scores', 'settings'];
 
 const store = saveStore();
 
@@ -29,6 +51,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('boot');
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<UiEvent[]>([]);
+  const [level, setLevel] = useState<LevelId>('expressway');
   const save = useSave();
 
   useEffect(() => {
@@ -54,6 +77,8 @@ export function App() {
         fillMeter: () => engine.sim?.debugFillMeter(),
         stumble: () => engine.sim?.debugStumble(),
         clearRoad: (m: number) => engine.sim?.debugClearRoad(m),
+        collect: (kind: string) => engine.sim?.debugCollect(kind as never),
+        hud: () => engine.hud.get(),
       };
       off = engine.on((ev) => {
         if (ev.type === 'introDone') {
@@ -87,9 +112,7 @@ export function App() {
     const engine = engineRef.current;
     engine?.audio.unlock();
     engine?.audio.play('click');
-    if (engine && (s === 'menu' || s === 'characters' || s === 'modes' || s === 'missions' || s === 'shop' || s === 'scores' || s === 'settings')) {
-      engine.showShowcase(store.data.selectedCharacter);
-    }
+    if (engine && SHOWCASE.includes(s)) engine.showShowcase(store.data.selectedCharacter);
     setScreen(s);
   }, []);
 
@@ -135,9 +158,24 @@ export function App() {
           </button>
         </div>
       )}
-      {screen === 'title' && engine && <TitleScreen onStart={() => start({ mode: 'A', character: 'akhilesh' })} onMenu={() => go('menu')} />}
+      {screen === 'title' && engine && (
+        <TitleScreen onStart={() => start({ mode: 'campaign', level: nextLevel(store.data).id, character: heroFor(store.data) })} onMenu={() => go('menu')} />
+      )}
       {screen === 'menu' && <MenuScreen go={go} />}
+      {screen === 'campaign' && (
+        <CampaignScreen
+          go={go}
+          pick={(id) => {
+            engine?.audio.play('click');
+            setLevel(id);
+            setScreen('level');
+          }}
+        />
+      )}
+      {screen === 'level' && <LevelIntroScreen go={go} level={level} start={start} />}
       {screen === 'modes' && <ModeScreen go={go} start={start} />}
+      {screen === 'debate' && engine && <DebateScreen engine={engine} go={go} />}
+      {screen === 'board' && <BoardScreen go={go} />}
       {screen === 'characters' && engine && (
         <CharacterScreen go={go} preview={(id: CharacterId) => engine.showShowcase(id)} />
       )}

@@ -306,29 +306,45 @@ function addGarland(spine: THREE.Object3D): void {
   spine.add(g2);
 }
 
-export function buildUmmeedwar(o: ModelOptions): CharacterRig {
+/** Karyakarta-ji: a fictional party volunteer (no real person, no party logo). */
+export function buildKaryakarta(o: ModelOptions): CharacterRig {
   const { rig, head, spine } = buildHumanoid({
     skin: 0xc98e62,
     top: 0xfafafa,
     legs: 0xf2f2ee,
     shoes: 0x222222,
-    torsoW: 0.27,
+    torsoW: 0.26,
     headScale: [1.04, 0.98, 1.0],
     skirtLen: 0.44,
-    skirtFlare: 0.41,
+    skirtFlare: 0.4,
     browColor: DARK,
     style: { strideAmp: 0.66, armAmp: 0.9, bounce: 0.09, slide: 'duck', jumpArms: 'up', idle: 'wave', victory: 'arm' },
   });
-  const hair = mesh(sphere(0.29, 22, 16), toon(0x151515), 0.03, 0.07, 0.06);
+  const hair = mesh(sphere(0.288, 22, 16), toon(0x151515), 0.02, 0.06, 0.05);
   head.add(hair);
   const stache = mesh(capsule(0.03, 0.16), toon(0x151515), 0, -0.055, -0.26);
   stache.rotation.z = Math.PI / 2;
   head.add(stache);
-  spine.add(mesh(cyl(0.285, 0.3, 0.5, 20, true), toon(0xc9a66b, { side: THREE.DoubleSide }), 0, 0.27, 0));
-  addGarland(spine);
-  if (o.outfit === 'ummeedwar.shades') {
-    for (const side of [-1, 1]) head.add(mesh(box(0.12, 0.07, 0.03), toon(0x0d0d0d), side * 0.1, 0.03, -0.27));
-    head.add(mesh(box(0.08, 0.02, 0.02), toon(0x0d0d0d), 0, 0.05, -0.275));
+  // Saffron scarf (gamchha) around the neck, ends hanging in front and back.
+  const scarf = toon(0xff8c1a);
+  const ring = mesh(torus(0.16, 0.05, Math.PI * 2, 6, 18), scarf, 0, 0.53, -0.01);
+  ring.rotation.x = Math.PI / 2;
+  spine.add(ring);
+  for (const [x, z] of [
+    [-0.09, -0.26],
+    [0.09, -0.26],
+    [0, 0.27],
+  ]) {
+    const strip = mesh(box(0.1, 0.46, 0.025), scarf, x, 0.3, z);
+    strip.rotation.z = x * 0.6;
+    spine.add(strip);
+  }
+  if (o.outfit === 'karyakarta.cap') {
+    const cap = gandhiCap(0xff8c1a);
+    cap.position.set(0, 0.21, 0.02);
+    cap.rotation.x = -0.12;
+    cap.scale.set(1.6, 1.15, 1.0);
+    head.add(cap);
   }
   rig.runStyle = o.runStyle ?? 'classic';
   return rig;
@@ -375,8 +391,8 @@ export function buildCharacter(id: CharacterId, o: ModelOptions): CharacterRig {
   switch (id) {
     case 'yogi':
       return optimizeRig(buildYogi(o));
-    case 'ummeedwar':
-      return optimizeRig(buildUmmeedwar(o));
+    case 'karyakarta':
+      return optimizeRig(buildKaryakarta(o));
     default:
       return optimizeRig(buildAkhilesh(o));
   }

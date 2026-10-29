@@ -6,9 +6,9 @@ export function baseSpeedAt(s: number): number {
   return BASE_SPEED + (MAX_SPEED - BASE_SPEED) * (1 - Math.exp(-d / SPEED_RAMP_DIST));
 }
 
-/** Mode B (Bulldozer Chase challenge) ramps over the chase itself. */
-export function challengeSpeed(elapsed: number): number {
-  return 14.5 + Math.min(1, Math.max(0, elapsed / 30)) * 4.5;
+/** Campaign levels: faster for later levels, gently ramping within a level. */
+export function levelSpeed(diff: number, progress: number): number {
+  return Math.min(MAX_SPEED, BASE_SPEED + 6 * diff + 1.5 * Math.min(1, Math.max(0, progress)));
 }
 
 /** 0 at the start of a run, 1 at "hard" (4 km). */

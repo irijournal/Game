@@ -1,8 +1,8 @@
 {
   "name": "up-run",
   "private": true,
-  "version": "2.0.0",
-  "description": "UP RUN: Political Rivalry Mode - a satirical Subway Surfers-style endless runner for mobile and desktop browsers.",
+  "version": "3.0.0",
+  "description": "UP RUN: Development vs. Gundaraj - a fan-made pro-BJP political satire runner (8 levels, rivalry, race, debate) for mobile and desktop browsers.",
   "type": "module",
   "scripts": {
     "dev": "vite",
