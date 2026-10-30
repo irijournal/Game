@@ -75,7 +75,7 @@ const UI = {
   raceAgain: { en: 'Race again', hi: 'Phir race' },
   flyAgain: { en: 'Fly again', hi: 'Phir udaan' },
   retry: { en: 'Retry', hi: 'Phir khelo' },
-  nextLevel: { en: 'Next level', hi: 'Agla level' },
+  nextLevel: { en: 'Next', hi: 'Agla level' },
   menu: { en: 'Menu', hi: 'Menu' },
   // Governance Room
   govStart: { en: '▶ START THE SHIFT', hi: '▶ SHIFT SHURU KARO' },
