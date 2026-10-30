@@ -299,8 +299,12 @@ const release = (page) => page.evaluate(() => (window.__UPRUN__.engine.manual = 
         await page.waitForTimeout(500);
       }
       await step(page, 10);
-      // Let the cinematic play out (bot inputs would skip it), then drive the showdown.
-      await page.evaluate(() => { window.__UPRUN__.autopilot(false); window.__UPRUN__.fillMeter(); });
+      // The bot keeps steering through the 1 s warning (otherwise a random
+      // obstacle can trip the runner first and skip EVENT_PENDING); it stops
+      // at the scripted stumble so its inputs don't skip the cinematic, and
+      // drives again in the showdown.
+      await page.evaluate(() => window.__UPRUN__.fillMeter());
+      let botOn = true;
       for (let i = 0; i < 400; i++) {
         const s = await page.evaluate(() => {
           const e = window.__UPRUN__.engine;
@@ -309,6 +313,10 @@ const release = (page) => page.evaluate(() => (window.__UPRUN__.engine.manual = 
           return { ...window.__UPRUN__.info(), stage: e.sim.stats.stage, hero: !!r.rival && r.rival.root.visible, veh: !!r.vehicle && r.vehicle.root.visible, kind: r.kind, z: r.vehicle ? r.vehicle.root.position.z : 0, x: r.vehicle ? r.vehicle.root.position.x : 0 };
         });
         seen.add(s.state);
+        if (botOn && (s.state === 'STUMBLE' || s.state === 'CINEMATIC')) {
+          await page.evaluate(() => window.__UPRUN__.autopilot(false));
+          botOn = false;
+        }
         if (s.state === 'EVENT_PENDING' && !warning) {
           await release(page);
           warning = await page.waitForSelector('text=POLITICAL CHALLENGE AHEAD!', { timeout: 1500 }).then(() => true, () => false);
