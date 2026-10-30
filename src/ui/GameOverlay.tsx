@@ -12,6 +12,7 @@ import { THEME_NAMES } from '../sim/themes';
 import type { TokenVariant } from '../sim/types';
 import { SCORE_NOTE } from './disclaimer';
 import { FactTypeBadge, Stars } from './Screens';
+import { useT } from './i18n';
 import { updateSave, useSave } from './store';
 
 export const TOKEN_ICON: Record<TokenVariant, string> = {
@@ -33,6 +34,8 @@ interface Props {
   onMenu: () => void;
   onRetry: () => void;
   onStart: (o: StartOptions) => void;
+  /** Leave the run and open the Governance Room. */
+  onGovernance: () => void;
   error: string | null;
   clearError: () => void;
 }
@@ -46,9 +49,10 @@ interface Timed<T> {
 let uid = 1;
 const fmt = (n: number) => Math.floor(n).toLocaleString('en-IN');
 
-export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, clearError }: Props) {
+export function GameOverlay({ engine, events, onMenu, onRetry, onStart, onGovernance, error, clearError }: Props) {
   const hud = useSyncExternalStore(engine.hud.subscribe, engine.hud.get);
   const save = useSave();
+  const t = useT();
   const [captions, setCaptions] = useState<Timed<{ text: string; sub?: string; tone: CaptionTone }>[]>([]);
   const [toasts, setToasts] = useState<Timed<{ text: string; sub?: string; tone: ToastTone }>[]>([]);
   const [comic, setComic] = useState<Timed<string> | null>(null);
@@ -266,7 +270,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
       {paused && !over && (
         <div className="modal">
           <div className="card modal-card">
-            <h2>Paused</h2>
+            <h2>{t('paused')}</h2>
             {paused.reason === 'hidden' || paused.reason === 'blur' ? <p className="muted">Paused while the game was in the background.</p> : null}
             {paused.reason === 'orientation' ? <p className="muted">Paused while the screen rotated.</p> : null}
             {error && (
@@ -280,7 +284,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
             {confirm === null && (
               <>
                 <button className="btn primary huge" onClick={() => { clearError(); engine.resumeGame(); }} autoFocus>
-                  ▶ Resume
+                  {t('resume')}
                 </button>
                 <div className="row">
                   <button className={`btn small ${save.settings.music ? 'on' : ''}`} onClick={() => updateSave((d) => (d.settings.music = !d.settings.music))}>
@@ -294,7 +298,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
                   ↻ Restart run
                 </button>
                 <button className="btn" onClick={() => setConfirm('menu')}>
-                  ⌂ Main menu
+                  {t('quit')}
                 </button>
               </>
             )}
@@ -325,7 +329,7 @@ export function GameOverlay({ engine, events, onMenu, onRetry, onStart, error, c
         </div>
       )}
 
-      {over && <GameOver over={over} onMenu={onMenu} onRetry={onRetry} onStart={onStart} />}
+      {over && <GameOver over={over} onMenu={onMenu} onRetry={onRetry} onStart={onStart} onGovernance={onGovernance} />}
     </div>
   );
 }
@@ -466,13 +470,16 @@ function GameOver({
   onMenu,
   onRetry,
   onStart,
+  onGovernance,
 }: {
   over: { summary: RunSummary; info: RunResultInfo; at: number };
   onMenu: () => void;
   onRetry: () => void;
   onStart: (o: StartOptions) => void;
+  onGovernance: () => void;
 }) {
   const save = useSave();
+  const t = useT();
   const { summary: s, info } = over;
   const [armed, setArmed] = useState(false);
   const [details, setDetails] = useState(false);
@@ -485,23 +492,25 @@ function GameOver({
   const next = level ? LEVELS[level.num] : undefined;
   const nextOpen = next ? levelUnlocked(save, next.id) : false;
   const won = !!(s.level?.completed || s.race?.won || (s.mode === 'mayhem' && s.completed));
-  const title = level
-    ? s.level?.completed
-      ? 'LEVEL COMPLETE!'
-      : 'LEVEL NOT FINISHED'
-    : s.race
-      ? s.race.won
-        ? 'RACE WON!'
-        : 'RIVAL WINS THE RACE'
-      : s.mode === 'mayhem'
-        ? s.completed
-          ? 'MANIFESTO EMPTY!'
-          : 'BURIED IN PROMISES!'
-      : s.chaseResult === 'failed'
-        ? 'CAUGHT IN THE SHOWDOWN!'
-        : s.reason === 'quit'
-          ? 'RUN ENDED'
-          : 'RUN OVER';
+  const title = t(
+    level
+      ? s.level?.completed
+        ? 'levelComplete'
+        : 'levelNotFinished'
+      : s.race
+        ? s.race.won
+          ? 'raceWon'
+          : 'raceLost'
+        : s.mode === 'mayhem'
+          ? s.completed
+            ? 'manifestoEmpty'
+            : 'buried'
+          : s.chaseResult === 'failed'
+            ? 'caught'
+            : s.reason === 'quit'
+              ? 'runEnded'
+              : 'runOver',
+  );
   const best = save.best[s.mode];
   const b = s.breakdown;
   const badge = info.badgeEarned && level ? level.badge : null;
@@ -515,7 +524,7 @@ function GameOver({
             {s.level?.completed && <Stars n={s.level.stars} big />}
           </div>
         )}
-        {info.newBest && <div className="badge">NEW BEST!</div>}
+        {info.newBest && <div className="badge">{t('newBest')}</div>}
         <div className="final-score" title={SCORE_NOTE}>
           {fmt(s.score)}
         </div>
@@ -658,19 +667,24 @@ function GameOver({
         {level && s.level?.completed && next && nextOpen ? (
           <>
             <button className="btn primary huge" disabled={!armed} onClick={() => onStart({ mode: 'campaign', level: next.id, character: s.character })} autoFocus>
-              ▶ Next: {next.name}
+              ▶ {t('nextLevel')}: {next.name}
             </button>
             <button className="btn" disabled={!armed} onClick={onRetry}>
-              ↻ Replay level
+              ↻ {t('replayLevel')}
             </button>
           </>
         ) : (
           <button className="btn primary huge" disabled={!armed} onClick={onRetry} autoFocus>
-            ↻ {level ? 'Replay level' : s.race ? 'Race again' : s.mode === 'mayhem' ? 'Fly again' : 'Retry'}
+            ↻ {t(level ? 'replayLevel' : s.race ? 'raceAgain' : s.mode === 'mayhem' ? 'flyAgain' : 'retry')}
+          </button>
+        )}
+        {level?.id === 'lawandorder' && s.level?.completed && (
+          <button className="btn gov-menu-btn" disabled={!armed} onClick={onGovernance}>
+            {t('governance')} ▸
           </button>
         )}
         <button className="btn" disabled={!armed} onClick={onMenu}>
-          ⌂ Main menu
+          {t('quit')}
         </button>
       </div>
     </div>

@@ -26,6 +26,21 @@ Sources were checked on **2026-10-29**. Some government pages could not be reach
 
 News-ticker headlines, hero catchphrases, the rival caricature's one-liners and the Manifesto Mayhem crate labels are **fictional satire written for the game**. The UI labels every one of them: "UP RUN NEWS • satire, not real news", "fictional line", "game slogan". Jokes that mention a real-world number use only figures from the entries below (for example, the SP's 47 seats in 2017). None of these lines is a quote from a real person, and none accuses a real person of a crime. The Mayhem crate promises ("FREE MOON TRIP", "EXPRESSWAY TO MARS"…) are invented exaggerations; they are not taken from any real manifesto, and the game says so on the mode screen and on every crate.
 
+## Governance Room cases (`src/content/governance.ts`)
+
+The eight Governance Room cases are **fictional**:
+
+- the district (Khushalpur);
+- the gangs (Kaala Haath, an unnamed sand mafia and land-grab gang);
+- the strongman (Bhaukaali Bhaiya);
+- every event and every outcome.
+
+The cases make no factual claim about the real Uttar Pradesh and show no crime statistics. No real party, politician or place plays a negative role, and a unit test enforces this. The meters are game scores.
+
+The mode's argument is stated in the game as an argument: "lasting safety comes from police, evidence and courts working together". Every "shortcut" answer that skips due process (a TV verdict, clearing a structure without notice, moral policing, mass arrests) costs rule of law, and its consequence shows the court undoing it. No option demolishes a home. The report card links only to two evidence-board entries, *Law and order as a campaign theme* and *"Gundaraj"*, both labelled **political claims**.
+
+Hinglish versions of the interface and of the Governance Room are translations of the same game text. Facts, quiz questions and the evidence board stay in English so their wording matches the sources below.
+
 ## Entries
 
 ### Purvanchal Expressway (verified)

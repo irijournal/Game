@@ -4,6 +4,8 @@ import { CHARACTERS, CHARACTER_ORDER, ROUTES, RUN_STYLES, TRAILS } from '../sim/
 import { dayKey, missionById, missionsForDay, type ActiveMission } from '../sim/missions';
 import type { Perks, RunSummary } from '../sim/simulation';
 import { THEME_ORDER, type CharacterId, type ModeId, type ThemeId } from '../sim/types';
+import { governanceCoins, type GovRating } from '../content/governance';
+import type { Lang } from '../content/lang';
 
 export const SAVE_KEY = 'uprun.save';
 export const LEGACY_KEY = 'uprun.save.v1';
@@ -22,6 +24,8 @@ export interface Settings {
   debugColliders: boolean;
   /** On-screen ◀ ▲ ▼ ▶ buttons in addition to swipes. */
   touchButtons: boolean;
+  /** Interface language: English or Roman-script Hinglish. */
+  language: Lang;
 }
 
 export interface Equipped {
@@ -49,6 +53,9 @@ export interface SaveStats {
   quizCorrect: number;
   mayhemWins: number;
   fakePromisesDodged: number;
+  governanceShifts: number;
+  /** Best Governance Room rating, in stars (0..3). */
+  governanceBest: number;
   racesWon: number;
   roadsCleared: number;
   promisesDelivered: number;
@@ -85,6 +92,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quality: 'auto',
   debugColliders: false,
   touchButtons: typeof matchMedia === 'function' ? matchMedia('(pointer: coarse)').matches : false,
+  language: 'en',
 };
 
 const EMPTY_STATS: SaveStats = {
@@ -99,6 +107,8 @@ const EMPTY_STATS: SaveStats = {
   quizCorrect: 0,
   mayhemWins: 0,
   fakePromisesDodged: 0,
+  governanceShifts: 0,
+  governanceBest: 0,
   racesWon: 0,
   roadsCleared: 0,
   promisesDelivered: 0,
@@ -241,6 +251,7 @@ export function validateSave(input: unknown, day = dayKey()): SaveData {
     const s = raw.stats;
     for (const k of Object.keys(EMPTY_STATS) as (keyof SaveStats)[]) out.stats[k] = num(s[k], EMPTY_STATS[k]);
     out.stats.bestStage = Math.max(1, out.stats.bestStage);
+    out.stats.governanceBest = Math.min(3, out.stats.governanceBest);
   }
   if (isObj(raw.missions) && raw.missions.day === day) {
     const ids = strArray(raw.missions.ids).filter((id) => missionById(id));
@@ -284,6 +295,7 @@ export function validateSave(input: unknown, day = dayKey()): SaveData {
       quality: str(s.quality, ['auto', 'high', 'low'] as const, 'auto'),
       debugColliders: bool(s.debugColliders, false),
       touchButtons: bool(s.touchButtons, DEFAULT_SETTINGS.touchButtons),
+      language: str<Lang>(s.language, ['en', 'hi'], 'en'),
     };
   }
   return out;
@@ -523,6 +535,22 @@ export function applyRun(d: SaveData, run: RunSummary, missionProgress: Record<s
   d.flags.tutorialDone = true;
   const achievementsNow = updateAchievements(d);
   return { newBest, previousBest, coinsEarned: run.coins, missionRewards, unlockedNow, badgeEarned, nextLevelUnlocked, previousStars, achievementsNow, giftCoins };
+}
+
+export interface GovernanceResultInfo {
+  coins: number;
+  newBest: boolean;
+  achievementsNow: string[];
+}
+
+/** Record a finished Governance Room shift. */
+export function applyGovernance(d: SaveData, rating: GovRating): GovernanceResultInfo {
+  const newBest = rating.stars > d.stats.governanceBest;
+  const coins = governanceCoins(rating);
+  d.stats.governanceShifts += 1;
+  d.stats.governanceBest = Math.max(d.stats.governanceBest, rating.stars);
+  d.coins += coins;
+  return { coins, newBest, achievementsNow: updateAchievements(d) };
 }
 
 export function priceOf(id: string): number {

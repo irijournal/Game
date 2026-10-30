@@ -12,6 +12,10 @@ You run as a **Yogi Adityanath-inspired hero** (saffron robes, dramatic entrance
 |---|---|---|
 | ![Main menu](docs/screenshots/1-start-menu.png) | ![Gameplay with the bulldozer power-up](docs/screenshots/2-gameplay.png) | ![Reward screen with real-world context](docs/screenshots/3-level-complete.png) |
 
+| Governance Room (Hinglish) | Governance report card |
+|---|---|
+| ![A Governance Room case in Hinglish](docs/screenshots/4-governance-hinglish.png) | ![Governance Room report card](docs/screenshots/5-governance-report.png) |
+
 Every push to the main branch rebuilds the game and republishes the site (`.github/workflows/deploy-pages.yml`).
 
 ---
@@ -62,6 +66,8 @@ Requirements: Node 18+ and a browser with WebGL (current Chrome, Edge, Firefox o
 
 The on-screen ◀ ▲ ▼ ▶ buttons appear by default on touch devices. You can switch them on or off under *Settings → On-screen touch buttons*.
 
+**Language.** The menu's 🗣️ button (or *Settings → Language*) switches the interface between English and Roman-script **Hinglish**: menus, how-to-play, Manifesto Mayhem, the pause menu, result screens and the whole Governance Room. Sourced facts, quiz questions and the evidence board stay in English so their wording matches the cited sources.
+
 ## Modes
 
 ### Campaign: eight levels
@@ -101,6 +107,42 @@ The rival caricature flies a campaign **cycle-copter** above the road and drops 
 
 The crates land on spots the normal generator has already checked are passable, so the falling is purely visual and the course stays fair.
 
+### Governance Room
+
+A decision mode, not a runner. You run the Governance Room of **Khushalpur, a fictional district**. Five fictional cases are dealt from a deck of eight, and each one has four possible responses:
+
+- hafta in the sabzi mandi;
+- a threatened witness;
+- a strongman's empty warehouse blocking an expressway service road;
+- harassment near a college;
+- a recruitment-exam paper leak;
+- a doctored WhatsApp video;
+- illegal sand mining;
+- cases stuck for years.
+
+Every response moves four meters: 🛡️ public safety, ⚖️ rule of law, 🤝 public trust and 🚀 development. Each case has four kinds of answer:
+
+- **Best call:** police, evidence, courts and quick delivery working together.
+- **Good step:** right direction, half the job.
+- **Shortcut:** for example "declare them guilty on TV", "skip the notice and clear it tonight" or moral policing. Shortcuts always cost rule of law, and the consequence shows the court undoing them.
+- **Gundaraj answer** or **comic disaster:** "call it a minor matter", "forward it for awareness", "switch off the internet for a month".
+
+The hero caricature reacts to each choice ("Kanoon se kaam, kaam se naam!").
+
+The report card rates the shift:
+
+| Rating | Stars |
+|---|---|
+| *Suraksha + Samvidhan: Model Governance* | ★★★ |
+| *Good Governance* | ★★ |
+| *Shortcut Sarkar* (when shortcuts sank it) | ★ |
+| *Shaky Sarkar* | ★ |
+| *GUNDARAJ RETURNS!* | none |
+
+The report card also lists your calls and shows the evidence-board entries that label the real debate as political claims. Coins and the **Rule of Law Champion** achievement are awarded.
+
+The mode makes the game's argument (lasting safety comes from due process, not shortcuts) through what the player does rather than through slogans. The cases are fictional; no real party, politician or place plays a negative role, and no option demolishes a home or punishes anyone without a case. After finishing Level 6 (Law & Order), the reward screen offers a shortcut into the Governance Room.
+
 ## Satire layer
 
 All of this is labelled fictional satire in the game:
@@ -127,9 +169,9 @@ All of this is labelled fictional satire in the game:
 
 ## Scoreboard and achievements
 
-The **Scoreboard** ("Performance is the real scoreboard") shows personal bests per mode and the longest run. It also tracks levels and stars, development tokens, missions, obstacles avoided, debris cleared, promises delivered, Red Cap Challenges won, Accountability Gates passed, races won, Manifesto Mayhem wins, fictional promises dodged and the best Rivalry stage. Every score screen says that game points are fictional.
+The **Scoreboard** ("Performance is the real scoreboard") shows personal bests per mode and the longest run. It also tracks levels and stars, development tokens, missions, obstacles avoided, debris cleared, promises delivered, Red Cap Challenges won, Accountability Gates passed, races won, Manifesto Mayhem wins, fictional promises dodged, the best Rivalry stage and Governance Room shifts. Every score screen says that game points are fictional.
 
-**Achievements & Facts** has four tabs: 13 achievements, the 8 level badges, the **Evidence board** (all real-world information, filterable by type, with sources and the check date) and the game's own slogans (labelled as political claims, not quotes).
+**Achievements & Facts** has four tabs: 14 achievements, the 8 level badges, the **Evidence board** (all real-world information, filterable by type, with sources and the check date) and the game's own slogans (labelled as political claims, not quotes).
 
 ## Architecture
 
@@ -165,8 +207,8 @@ Key decisions:
 
 ```bash
 npm run typecheck
-npm test             # 110 unit + integration tests (~3 min; one physics cross-check is slow)
-npm run build && npm run e2e   # 18 browser scenarios against the production build
+npm test             # 125 unit + integration tests (~3 min; one physics cross-check is slow)
+npm run build && npm run e2e   # 19 browser scenarios against the production build
 E2E_ONLY="Rivalry|Mayhem" npm run e2e   # run a subset by name
 ```
 
@@ -181,6 +223,12 @@ The unit tests cover:
 - The rivalry warning → stumble → entrance → showdown → next stage flow.
 - A state-machine fuzz test, scoring, and save validation and migration (v1 and v2 → v3).
 - Content integrity: sources, references, and SP-era credits.
+- The Governance Room, checked on every possible five-case shift:
+  - each case has exactly one best answer, and it is the due-process one;
+  - shortcuts always cost rule of law;
+  - best calls always earn 3 stars, Gundaraj answers always end in "Gundaraj returns", and shortcut-heavy shifts are rated Shortcut Sarkar;
+  - no case names a real party, politician or place, and no option demolishes a home;
+  - the language setting is validated.
 
 The browser scenarios cover:
 
@@ -188,6 +236,7 @@ The browser scenarios cover:
 - **All 8 levels finished to their reward screens**, and an Accountability Gate answered with its fact card.
 - The full Rivalry sequence escaped, and a showdown lost then retried.
 - The bulldozer power-up, the Development Race, Free Run with the cycle, and Manifesto Mayhem (crates falling, manifesto emptied).
+- A full Governance Room shift (five cases to a 3-star report card, saved with its achievement), and the Hinglish switch (it survives a reload).
 - Every menu button, the evidence-board filter and source links.
 - Save persistence and corrupt-save recovery, rotation, background-tab pause, and the no-WebGL screen.
 - Audio, and a 15-game-minute soak. Every scenario also fails on any console or page error.

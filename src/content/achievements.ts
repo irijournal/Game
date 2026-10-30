@@ -22,6 +22,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'ach.quiz', name: 'Accountability Ace', icon: '✅', how: 'Pass 10 Accountability Gates.', goal: 10, progress: (d) => d.stats.quizCorrect },
   { id: 'ach.mayhem', name: 'Manifesto Buster', icon: '🚁', how: 'Run the rival’s manifesto empty in Manifesto Mayhem.', goal: 1, progress: (d) => d.stats.mayhemWins },
   { id: 'ach.dodger', name: 'Promise Dodger', icon: '📦', how: 'Dodge 60 fictional promises in Manifesto Mayhem.', goal: 60, progress: (d) => d.stats.fakePromisesDodged },
+  { id: 'ach.ruleOfLaw', name: 'Rule of Law Champion', icon: '⚖️', how: 'Earn 3 stars in the Governance Room.', goal: 3, progress: (d) => d.stats.governanceBest },
   { id: 'ach.showdown', name: 'Showdown Survivor', icon: '🚜', how: 'Escape a Governance Showdown in Rivalry Mode.', goal: 1, progress: (d) => Math.min(1, d.stats.bestStage - 1) },
   { id: 'ach.race', name: 'Development Racer', icon: '🏁', how: 'Win a Development Race.', goal: 1, progress: (d) => d.stats.racesWon },
   { id: 'ach.roads', name: 'Road Clearer', icon: '🧹', how: 'Clear 25 debris piles with the bulldozer power-up.', goal: 25, progress: (d) => d.stats.roadsCleared },

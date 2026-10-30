@@ -5,6 +5,7 @@ import type { LevelId } from '../content/levels';
 import type { CharacterId } from '../sim/types';
 import { BoardScreen } from './Board';
 import { GameOverlay } from './GameOverlay';
+import { GovernanceScreen } from './Governance';
 import { saveStore, updateSave, useSave } from './store';
 import { CampaignScreen, CharacterScreen, heroFor, LevelIntroScreen, MayhemScreen, MenuScreen, MissionsScreen, ModeScreen, nextLevel, ScoresScreen, SettingsScreen, ShopScreen, TitleScreen } from './Screens';
 
@@ -17,6 +18,7 @@ export type Screen =
   | 'level'
   | 'modes'
   | 'mayhem'
+  | 'governance'
   | 'board'
   | 'characters'
   | 'missions'
@@ -27,7 +29,7 @@ export type Screen =
   | 'error';
 
 /** Screens shown over the idling character on the street. */
-const SHOWCASE: readonly Screen[] = ['menu', 'campaign', 'level', 'characters', 'modes', 'mayhem', 'board', 'missions', 'shop', 'scores', 'settings'];
+const SHOWCASE: readonly Screen[] = ['menu', 'campaign', 'level', 'characters', 'modes', 'mayhem', 'governance', 'board', 'missions', 'shop', 'scores', 'settings'];
 
 const store = saveStore();
 
@@ -174,6 +176,7 @@ export function App() {
       {screen === 'level' && <LevelIntroScreen go={go} level={level} start={start} />}
       {screen === 'modes' && <ModeScreen go={go} start={start} />}
       {screen === 'mayhem' && <MayhemScreen go={go} start={start} />}
+      {screen === 'governance' && <GovernanceScreen go={go} sfx={(s) => engine?.audio.play(s)} />}
       {screen === 'board' && <BoardScreen go={go} />}
       {screen === 'characters' && engine && (
         <CharacterScreen go={go} preview={(id: CharacterId) => engine.showShowcase(id)} />
@@ -196,6 +199,11 @@ export function App() {
             engine.restart();
           }}
           onStart={start}
+          onGovernance={() => {
+            engine.quitToMenu();
+            setEvents([]);
+            go('governance');
+          }}
           error={error}
           clearError={() => setError(null)}
         />

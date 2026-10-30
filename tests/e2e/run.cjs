@@ -484,6 +484,57 @@ const release = (page) => page.evaluate(() => (window.__UPRUN__.engine.manual = 
     await ctx.close();
   });
 
+  // 11b. Governance Room: five fictional cases decided with due process →
+  // model-governance report card; then the Hinglish switch (persists on reload).
+  await scenario('Governance Room: 5 cases → report card; Hinglish switch', async () => {
+    const { page, errors, ctx } = await newPage(browser);
+    await page.goto(BASE + '?nointro');
+    await ready(page);
+    await page.click('.menu-screen >> text=Governance Room');
+    const label = await page.isVisible('text=Every case, place, gang and person in the Governance Room is fictional');
+    await page.click('text=START THE SHIFT');
+    const BEST = ['mandi.squad', 'witness.protect', 'encroach.notice', 'college.patrol', 'paper.reexam', 'rumour.factcheck', 'sand.drone', 'backlog.lab'];
+    const seen = [];
+    for (let i = 0; i < 5; i++) {
+      await page.waitForSelector('.gov-case');
+      seen.push(await page.textContent('.gov-count'));
+      const id = await page.evaluate((best) => [...document.querySelectorAll('[data-choice]')].map((b) => b.dataset.choice).find((c) => best.includes(c)), BEST);
+      await page.click(`[data-choice="${id}"]`);
+      await page.waitForSelector('.gov-result');
+      if (i === 1) {
+        await page.waitForTimeout(600);
+        await page.screenshot({ path: path.join(SHOTS, '11b_governance_case.png') });
+      }
+      await page.click(i < 4 ? 'text=Next case' : 'text=See the report card');
+    }
+    await page.waitForSelector('.gov-report');
+    const title = await page.textContent('.gov-report h3');
+    const contextFacts = await page.locator('.fact-card.claim').count();
+    await page.screenshot({ path: path.join(SHOTS, '11b_governance_report.png') });
+    const saved = await page.evaluate(() => {
+      const d = window.__UPRUN__.save.data;
+      return { shifts: d.stats.governanceShifts, best: d.stats.governanceBest, ach: d.achievements.includes('ach.ruleOfLaw'), coins: d.coins };
+    });
+    // Hinglish: switch on the menu, check a few labels, reload, still Hinglish.
+    await page.click('text=Menu');
+    await page.click('.menu-screen >> text=English → Hinglish');
+    const hiMenu = (await page.isVisible('.menu-screen >> text=Kirdaar')) && (await page.isVisible('.menu-screen >> text=Achievements aur Facts'));
+    await page.reload();
+    await ready(page);
+    await page.waitForSelector('.menu-screen');
+    const kept = await page.isVisible('.menu-screen >> text=Kirdaar');
+    await page.click('.menu-screen >> text=Governance Room');
+    await page.click('text=SHIFT SHURU KARO');
+    const hiCase = await page.isVisible('text=Aap kya karenge?');
+    await page.screenshot({ path: path.join(SHOTS, '11b_governance_hinglish.png') });
+    await page.click('[aria-label="Back"]');
+    await page.click('.menu-screen >> text=Hinglish → English');
+    const back = await page.isVisible('.menu-screen >> text=Characters');
+    const ok = label && seen.join(',') === 'Case 1/5,Case 2/5,Case 3/5,Case 4/5,Case 5/5' && /Model Governance/.test(title) && contextFacts === 2 && saved.shifts === 1 && saved.best === 3 && saved.ach && saved.coins === 85 && hiMenu && kept && hiCase && back && errors.length === 0;
+    record('Governance Room: 5 cases → report card; Hinglish switch', ok, `label=${label} cases=${seen.join(',')} title=${title} facts=${contextFacts} saved=${JSON.stringify(saved)} hinglish=${hiMenu}/${kept}/${hiCase} back=${back} errors=${errors.length}`);
+    await ctx.close();
+  });
+
   // 12. Every menu button leads somewhere real (no decorative buttons); board, sources and scoreboard labels.
   await scenario('menus: every button works; evidence board + scoreboard labels', async () => {
     const { page, errors, ctx } = await newPage(browser);
@@ -499,6 +550,7 @@ const release = (page) => page.evaluate(() => (window.__UPRUN__.engine.manual = 
       ['Unlocks', 'Start route'],
       ['Settings', 'On-screen touch buttons'],
       ['Manifesto Mayhem', 'Crates of fictional promises'],
+      ['Governance Room', 'Five cases land on your desk'],
     ];
     const res = [];
     for (const [btn, expect] of targets) {

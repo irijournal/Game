@@ -1904,3 +1904,239 @@ kbd {
 .evidence-summary small {
   color: var(--muted);
 }
+
+/* Governance Room */
+.gov-menu-btn {
+  background: #eaf6ff;
+  position: relative;
+}
+.new-tag {
+  position: absolute;
+  top: -9px;
+  right: -6px;
+  padding: 0 7px;
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  background: var(--gold);
+  font-size: 11px;
+  line-height: 18px;
+}
+.lang-switch {
+  font-size: 14px;
+}
+.gov-brief p {
+  margin: 8px 0;
+}
+.gov-meter-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.gov-chip {
+  padding: 2px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  background: #fff;
+  font-weight: 800;
+  font-size: 13px;
+}
+.gov-lesson {
+  padding: 8px 10px;
+  border-left: 5px solid var(--green);
+  border-radius: 8px;
+  background: #f1fbf3;
+  font-weight: 700;
+  font-size: 14px;
+}
+.gov-meters {
+  display: grid;
+  gap: 6px;
+  padding: 10px 14px;
+}
+.gov-meter {
+  display: grid;
+  grid-template-columns: 9.5em 1fr 4.2em;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 14px;
+}
+.gov-meter-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gov-bar > div {
+  background: linear-gradient(90deg, var(--saffron), var(--gold));
+  transition: width 0.45s ease;
+}
+.gov-bar.high > div {
+  background: linear-gradient(90deg, #4cc47a, var(--green));
+}
+.gov-bar.low > div {
+  background: linear-gradient(90deg, #ff8c8c, var(--red));
+}
+.gov-meter-val {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  justify-content: flex-end;
+}
+.gov-delta {
+  font-size: 12px;
+  animation: gov-in 0.5s ease;
+}
+.gov-delta.up {
+  color: var(--green);
+}
+.gov-delta.down {
+  color: var(--red);
+}
+.gov-case h3,
+.gov-report h3 {
+  margin: 2px 0 6px;
+  font-size: 22px;
+}
+.gov-count {
+  color: var(--muted);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.gov-situation {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.gov-ask {
+  display: block;
+  margin-bottom: 6px;
+}
+.gov-choices {
+  display: grid;
+  gap: 8px;
+}
+.gov-choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+  font-weight: 700;
+  font-size: 15px;
+}
+.gov-letter {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  background: var(--gold);
+}
+.gov-choice.picked.best,
+.gov-choice.picked.good {
+  background: #d9f6e2;
+}
+.gov-choice.picked.shortcut {
+  background: #fff1cc;
+}
+.gov-choice.picked.wrong,
+.gov-choice.picked.comic {
+  background: #ffe0e0;
+}
+.gov-choice:disabled {
+  opacity: 0.4;
+}
+.gov-result {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  animation: gov-in 0.35s ease;
+}
+@keyframes gov-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.gov-result.best,
+.gov-result.good {
+  border-color: var(--green);
+}
+.gov-result.shortcut {
+  border-color: #d49a00;
+}
+.gov-result.wrong,
+.gov-result.comic {
+  border-color: var(--red);
+}
+.gov-result p {
+  margin: 6px 0;
+}
+.gov-hero {
+  font-family: var(--comic-font);
+  font-size: 18px;
+  letter-spacing: 0.03em;
+  color: #c25400;
+}
+.gov-report {
+  text-align: center;
+}
+.gov-report.model {
+  background: #f1fbf3;
+}
+.gov-report.gundaraj h3 {
+  font-family: var(--comic-font);
+  font-size: 34px;
+  color: var(--red);
+  letter-spacing: 0.04em;
+}
+.gov-coins {
+  font-weight: 800;
+  font-size: 18px;
+}
+.gov-ach {
+  font-weight: 700;
+}
+.gov-calls ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+.gov-tag {
+  font-weight: 800;
+  white-space: nowrap;
+}
+.gov-tag.best,
+.gov-tag.good {
+  color: var(--green);
+}
+.gov-tag.shortcut {
+  color: #a87400;
+}
+.gov-tag.wrong,
+.gov-tag.comic {
+  color: var(--red);
+}
+.gov-context {
+  display: grid;
+  gap: 2px;
+}
+@media (max-width: 480px) {
+  .gov-meter {
+    grid-template-columns: 7.4em 1fr 3.8em;
+    font-size: 12px;
+  }
+  .gov-choice {
+    font-size: 14px;
+  }
+}

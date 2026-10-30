@@ -7,13 +7,15 @@ import type { StartOptions } from '../engine/Engine';
 import { activeMissions, levelUnlocked, priceOf, purchase, routeUnlocked, totalStars, type SaveData } from '../save/save';
 import { CHARACTERS, CHARACTER_ORDER, ROUTES, RUN_STYLES, TRAILS, type CosmeticDef } from '../sim/characters';
 import { MAYHEM_LENGTH, RACE_LENGTH } from '../sim/constants';
-import { FAKE_PROMISES, MAYHEM_DISCLAIMER } from '../content/mayhem';
+import { FAKE_PROMISES } from '../content/mayhem';
 import { dayKey } from '../sim/missions';
 import { THEME_INSPIRATION, THEME_NAMES } from '../sim/themes';
 import type { CharacterId, EncounterKind } from '../sim/types';
 import type { Screen } from './App';
 import { DISCLAIMER, SCORE_NOTE, SHORT_DISCLAIMER } from './disclaimer';
 import { saveStore, updateSave, useSave } from './store';
+import { useT } from './i18n';
+import { LANG_NAMES, type Lang } from '../content/lang';
 
 type Go = (s: Screen) => void;
 
@@ -47,7 +49,7 @@ function CoinPill({ coins }: { coins: number }) {
   );
 }
 
-function Header({ title, go, back = 'menu' }: { title: string; go: Go; back?: Screen }) {
+export function Header({ title, go, back = 'menu' }: { title: string; go: Go; back?: Screen }) {
   const save = useSave();
   return (
     <div className="screen-header">
@@ -107,6 +109,17 @@ export function FactCard({ fact, open = false }: { fact: Fact; open?: boolean })
   );
 }
 
+/** Quick English / Hinglish switch on the main menu. */
+function LangSwitch() {
+  const save = useSave();
+  const next: Lang = save.settings.language === 'en' ? 'hi' : 'en';
+  return (
+    <button className="btn lang-switch" onClick={() => updateSave((d) => (d.settings.language = next))} aria-label={`Language: ${LANG_NAMES[save.settings.language]}. Switch to ${LANG_NAMES[next]}`}>
+      🗣️ {LANG_NAMES[save.settings.language]} → {LANG_NAMES[next]}
+    </button>
+  );
+}
+
 /** Scrolling satire headlines for the menu (clearly labelled as not news). */
 function NewsTicker() {
   const [items] = useState(() => [...NEWS_HEADLINES].sort(() => Math.random() - 0.5).slice(0, 8));
@@ -135,6 +148,7 @@ function Brand({ small = false }: { small?: boolean }) {
 
 export function TitleScreen({ onStart, onMenu }: { onStart: () => void; onMenu: () => void }) {
   const save = useSave();
+  const t = useT();
   const lv = nextLevel(save);
   return (
     <div className="panel-screen title-screen">
@@ -143,29 +157,29 @@ export function TitleScreen({ onStart, onMenu }: { onStart: () => void; onMenu: 
         <div className="subtitle">{TAGLINE}</div>
       </div>
       <div className="tutorial card">
-        <h3>How to play</h3>
+        <h3>{t('howToPlay')}</h3>
         <ul>
           <li>
-            <b>Swipe ← →</b> or press <kbd>←</kbd> <kbd>→</kbd> (<kbd>A</kbd> <kbd>D</kbd>) to change lanes
+            <b>Swipe ← →</b> / <kbd>←</kbd> <kbd>→</kbd> (<kbd>A</kbd> <kbd>D</kbd>) {t('howLanes')}
           </li>
           <li>
-            <b>Swipe ↑</b> or press <kbd>Space</kbd> / <kbd>↑</kbd> to jump
+            <b>Swipe ↑</b> / <kbd>Space</kbd> / <kbd>↑</kbd> {t('howJump')}
           </li>
           <li>
-            <b>Swipe ↓</b> or press <kbd>↓</kbd> / <kbd>S</kbd> to slide • <kbd>Esc</kbd> pauses
+            <b>Swipe ↓</b> / <kbd>↓</kbd> / <kbd>S</kbd> {t('howSlide')} • <kbd>Esc</kbd> {t('howPause')}
           </li>
-          <li>Collect development tokens, reach the finish line and earn up to 3 stars per level.</li>
+          <li>{t('howGoal')}</li>
         </ul>
         <p className="gundaraj-def">
-          <b>“Gundaraj”</b> is a campaign word for lawlessness and intimidation. In this game it is a political claim and a set of fictional obstacles you leave behind — not a statement about any real person.
+          <b>“Gundaraj”</b> {t('gundarajDef')}
         </p>
       </div>
       <div className="title-actions">
         <button className="btn primary huge" onClick={onStart} autoFocus>
-          ▶ PLAY LEVEL {lv.num}
+          ▶ {t('playLevel')} {lv.num}
         </button>
         <button className="btn ghost" onClick={onMenu}>
-          Main menu
+          {t('mainMenu')}
         </button>
       </div>
       <p className="disclaimer">{SHORT_DISCLAIMER}</p>
@@ -175,6 +189,7 @@ export function TitleScreen({ onStart, onMenu }: { onStart: () => void; onMenu: 
 
 export function MenuScreen({ go }: { go: Go }) {
   const save = useSave();
+  const t = useT();
   const def = CHARACTERS[save.selectedCharacter];
   const done = LEVELS.filter((l) => save.levels[l.id].completed).length;
   return (
@@ -189,33 +204,38 @@ export function MenuScreen({ go }: { go: Go }) {
           {def.fictional && <em> (fictional)</em>}
         </div>
         <button className="btn primary huge" onClick={() => go('campaign')}>
-          ▶ CAMPAIGN <small className="btn-sub">{done}/8 levels • ★ {totalStars(save)}/24</small>
+          ▶ {t('campaign')} <small className="btn-sub">{done}/8 {t('levels')} • ★ {totalStars(save)}/24</small>
         </button>
         <div className="menu-grid">
           <button className="btn" onClick={() => go('modes')}>
-            🧢 Rivalry • Race • Free Run
+            {t('modes')}
           </button>
           <button className="btn" onClick={() => go('mayhem')}>
-            🚁 Manifesto Mayhem
+            {t('mayhem')}
+          </button>
+          <button className="btn gov-menu-btn" onClick={() => go('governance')}>
+            {t('governance')}
+            {save.stats.governanceShifts === 0 && <span className="new-tag">{t('newBadge')}</span>}
           </button>
           <button className="btn" onClick={() => go('board')}>
-            🏅 Achievements &amp; Facts
+            {t('board')}
           </button>
           <button className="btn" onClick={() => go('scores')}>
-            📊 Scoreboard
+            {t('scores')}
           </button>
           <button className="btn" onClick={() => go('characters')}>
-            👤 Characters
+            {t('characters')}
           </button>
           <button className="btn" onClick={() => go('missions')}>
-            🎯 Missions
+            {t('missions')}
           </button>
           <button className="btn" onClick={() => go('shop')}>
-            🛍 Unlocks
+            {t('shop')}
           </button>
           <button className="btn" onClick={() => go('settings')}>
-            ⚙ Settings
+            {t('settings')}
           </button>
+          <LangSwitch />
         </div>
       </div>
       <NewsTicker />
@@ -378,6 +398,7 @@ export function ModeScreen({ go, start }: { go: Go; start: (o: StartOptions) => 
 
 export function MayhemScreen({ go, start }: { go: Go; start: (o: StartOptions) => void }) {
   const save = useSave();
+  const t = useT();
   const hero = heroFor(save);
   const [samples] = useState(() => [...FAKE_PROMISES].sort(() => Math.random() - 0.5).slice(0, 4));
   return (
@@ -388,13 +409,15 @@ export function MayhemScreen({ go, start }: { go: Go; start: (o: StartOptions) =
           <div className="level-intro-head">
             <div>
               <h3>🚁 Manifesto Mayhem</h3>
-              <small className="muted">The rival caricature’s campaign cycle-copter is airborne — and it is full of promises.</small>
+              <small className="muted">{t('mayhemTagline')}</small>
             </div>
           </div>
           <ul className="level-facts">
-            <li>Crates of fictional promises parachute onto the road. A red ring shows where each one lands.</li>
-            <li>Dodge them for {fmt(MAYHEM_LENGTH)} m until the manifesto runs empty; collect real development tokens on the way.</li>
-            <li>One bump only slows you down while the stumble guard is ready; a second one ends the run.</li>
+            <li>{t('mayhemRule1')}</li>
+            <li>
+              {t('mayhemRule2')} ({fmt(MAYHEM_LENGTH)} m)
+            </li>
+            <li>{t('mayhemRule3')}</li>
           </ul>
           <div className="promise-samples">
             {samples.map((p) => (
@@ -405,13 +428,13 @@ export function MayhemScreen({ go, start }: { go: Go; start: (o: StartOptions) =
           </div>
           <div className="row">
             <button className="btn primary huge" onClick={() => start({ mode: 'mayhem', character: hero })} autoFocus>
-              ▶ PLAY AS {CHARACTERS[hero].shortName.toUpperCase()}
+              ▶ {t('playAs')} {CHARACTERS[hero].shortName.toUpperCase()}
             </button>
           </div>
           <p className="muted center">
-            Best {fmt(save.best.mayhem)} • Wins {fmt(save.stats.mayhemWins)} • Promises dodged {fmt(save.stats.fakePromisesDodged)}
+            {t('best')} {fmt(save.best.mayhem)} • {t('wins')} {fmt(save.stats.mayhemWins)} • {t('dodged')} {fmt(save.stats.fakePromisesDodged)}
           </p>
-          <p className="muted center small-print">{MAYHEM_DISCLAIMER}</p>
+          <p className="muted center small-print">{t('mayhemDisclaimer')}</p>
         </div>
       </div>
     </div>
@@ -678,6 +701,8 @@ export function ScoresScreen({ go }: { go: Go }) {
           {row('Development Races won', fmt(s.racesWon))}
           {row('Best Rivalry stage', fmt(s.bestStage))}
           {row('Showdowns survived', fmt(s.chasesSurvived))}
+          {row('Governance Room shifts', fmt(s.governanceShifts))}
+          {row('Best Governance rating', `${'★'.repeat(s.governanceBest)}${'☆'.repeat(3 - s.governanceBest)}`)}
         </div>
         <div className="card stats">
           <h3>Lifetime</h3>
@@ -709,17 +734,31 @@ export function SettingsScreen({ go, replayIntro, persistent, storageError }: { 
   const s = save.settings;
   const [confirmReset, setConfirmReset] = useState(false);
   const set = (fn: (d: SaveData) => void) => updateSave(fn);
+  const t = useT();
   return (
     <div className="panel-screen">
-      <Header title="Settings" go={go} />
+      <Header title={t('settingsTitle')} go={go} />
       <div className="list">
-        <Toggle label="Music" value={s.music} onChange={(v) => set((d) => (d.settings.music = v))} />
-        <Toggle label="Sound effects" value={s.sfx} onChange={(v) => set((d) => (d.settings.sfx = v))} />
-        <Toggle label="On-screen touch buttons" hint="◀ ▲ ▼ ▶ buttons in addition to swipes" value={s.touchButtons} onChange={(v) => set((d) => (d.settings.touchButtons = v))} />
-        <Toggle label="Reduced motion" hint="No screen shake, fewer particles" value={s.reducedMotion} onChange={(v) => set((d) => (d.settings.reducedMotion = v))} />
-        <Toggle label="Short cinematics" hint="Always use the quick hero entrance" value={s.shortCinematics} onChange={(v) => set((d) => (d.settings.shortCinematics = v))} />
         <div className="card toggle">
-          <span>Graphics quality</span>
+          <span>
+            {t('language')}
+            <small>{t('languageHint')}</small>
+          </span>
+          <div className="seg" role="radiogroup" aria-label={t('language')}>
+            {(['en', 'hi'] as const).map((l) => (
+              <button key={l} className={s.language === l ? 'on' : ''} role="radio" aria-checked={s.language === l} onClick={() => set((d) => (d.settings.language = l))}>
+                {LANG_NAMES[l]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Toggle label={t('music')} value={s.music} onChange={(v) => set((d) => (d.settings.music = v))} />
+        <Toggle label={t('sfx')} value={s.sfx} onChange={(v) => set((d) => (d.settings.sfx = v))} />
+        <Toggle label={t('touchButtons')} hint={t('touchHint')} value={s.touchButtons} onChange={(v) => set((d) => (d.settings.touchButtons = v))} />
+        <Toggle label={t('reducedMotion')} hint={t('reducedHint')} value={s.reducedMotion} onChange={(v) => set((d) => (d.settings.reducedMotion = v))} />
+        <Toggle label={t('shortCine')} hint={t('shortCineHint')} value={s.shortCinematics} onChange={(v) => set((d) => (d.settings.shortCinematics = v))} />
+        <div className="card toggle">
+          <span>{t('quality')}</span>
           <div className="seg">
             {(['auto', 'high', 'low'] as const).map((q) => (
               <button key={q} className={s.quality === q ? 'on' : ''} onClick={() => set((d) => (d.settings.quality = q))}>
